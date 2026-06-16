@@ -23,4 +23,25 @@ class Product extends Model
     {
         return $this->hasMany(\App\Models\StockTransaction::class);
     }
+    protected static function booted()
+{
+    static::saved(function ($product) {
+        if ($product->initial_stock <= $product->alert_stock_level && !$product->alert_sent) {
+            
+            // Fetch all users who are admins
+            // Assuming you have a 'role' column or similar way to identify admins
+            $adminEmails = User::where('role', 'admin')->pluck('email');
+
+            if ($adminEmails->isNotEmpty()) {
+                Mail::to($adminEmails)->send(new LowStockAlert($product));
+            }
+            
+            $product->updateQuietly(['alert_sent' => true]);
+            
+        } elseif ($product->initial_stock > $product->alert_stock_level && $product->alert_sent) {
+            
+            $product->updateQuietly(['alert_sent' => false]);
+        }
+    });
+}
 }

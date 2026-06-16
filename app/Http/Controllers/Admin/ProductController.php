@@ -14,6 +14,7 @@ class ProductController extends Controller
      */
     public function index()
     {
+        // Fetches all product models ordered by their creation date with pagination
         $products = Product::latest()->paginate(15);
         return view('admin.products.index', compact('products'));
     }
@@ -39,7 +40,7 @@ class ProductController extends Controller
             'purchase_cost'     => 'required|numeric|min:0',
             'selling_price'     => 'required|numeric|min:0',
             'inventory_unit'    => 'required|string|in:kg,paau,bottle,cartoon,boxes',
-            'initial_stock'     => 'required|integer|min:0',
+            'initial_stock'     => 'required|numeric|min:0', 
             'alert_stock_level' => 'required|integer|min:0',
         ], [
             'category_id.exists' => 'The selected system master category configuration is invalid.',
@@ -57,6 +58,7 @@ class ProductController extends Controller
             'selling_price'     => $validated['selling_price'],
             'inventory_unit'    => $validated['inventory_unit'],
             'initial_stock'     => $validated['initial_stock'], 
+            'stock'             => $validated['initial_stock'], // सुरुमा Current Stock र Initial Stock बराबर हुन्छ
             'alert_stock_level' => $validated['alert_stock_level'], 
         ]);
 

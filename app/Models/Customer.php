@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+// Import the correct Relationship class
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Customer extends Model
 {
@@ -37,8 +39,20 @@ class Customer extends Model
     protected $casts = [
         'previous_due' => 'decimal:2',
     ];
-    public function sales()
-{
-    return $this->hasMany(Sale::class)->orderBy('transaction_date', 'desc');
-}
+
+    /**
+     * Get the sales associated with the customer.
+     */
+    public function sales(): HasMany
+    {
+        return $this->hasMany(Sale::class)->orderBy('transaction_date', 'desc');
+    }
+
+    /**
+     * Get the invoices associated with the customer.
+     */
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
+    }
 }

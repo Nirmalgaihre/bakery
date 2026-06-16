@@ -9,21 +9,26 @@ use App\Models\Customer;
 class CustomerController extends Controller
 {
     /**
-     * Display a listing of the customers.
+     * Display the unified Customer Ledger Workspace.
      */
     public function index()
     {
-        // Fetch customers sorted by the latest registration
-        $customers = Customer::latest()->paginate(10);
+        // Using ->get() instead of ->paginate() to cleanly load the full datatable list 
+        // on the left panel, matching your AJAX dashboard layout perfectly.
+        $customers = Customer::latest()->get();
+        
         return view('admin.customers.index', compact('customers'));
     }
 
     /**
      * Show the form for creating a new customer.
+     * Maps securely back to the main directory view containing our side-by-side creation workspace.
      */
     public function create()
     {
-        return view('admin.customers.create');
+        $customers = Customer::latest()->get();
+        
+        return view('admin.customers.index', compact('customers'));
     }
 
     /**
@@ -55,6 +60,30 @@ class CustomerController extends Controller
                 ->withInput()
                 ->with('error', 'Failed to register customer: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Display the dynamic detail HTML side panel via AJAX hook.
+     */
+    public function show($id)
+    {
+        // Fetch customer along with their related invoices/sales histories
+        $customer = Customer::with(['invoices' => function($query) {
+            $query->latest()->limit(5); // Pulls top 5 recent customer transactions
+        }])->findOrFail($id);
+
+        // Compute aggregate metrics
+        $totalInwardOrders = $customer->invoices->count();
+        $totalSpendings    = $customer->invoices->sum('grand_total'); // Matches your custom tracking column
+        $outstandingDues   = $customer->previous_due ?? 0.00;
+
+        // Return a partial view file slice instead of a full layout structure
+        return view('admin.customers.partials.details-card', compact(
+            'customer', 
+            'totalInwardOrders', 
+            'totalSpendings', 
+            'outstandingDues'
+        ));
     }
 
     /**
