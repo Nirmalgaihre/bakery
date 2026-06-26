@@ -1,23 +1,33 @@
 <?php
+
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\SectorCategory;
 use Illuminate\Http\Request;
 
-class SectorCategoryController extends Controller {
-    
-    public function index() {
+class SectorCategoryController extends Controller 
+{
+    /**
+     * Display a listing of the resource.
+     */
+    public function index() 
+    {
         $categories = SectorCategory::all();
         return view('admin.categories', compact('categories'))->with('editingCategory', null);
     }
 
-    public function store(Request $request) {
+    /**
+     * Store a newly created resource in storage.
+     */
+    public function store(Request $request) 
+    {
         $request->validate([
             'name' => 'required|string|max:255|unique:sector_categories,name'
         ]);
 
         try {
+            // This now correctly calls the Eloquent create method
             SectorCategory::create(['name' => $request->name]);
             return redirect()->route('admin.categories.index')->with('success', 'Your category has been successfully registered!');
         } catch (\Exception $e) {
@@ -25,14 +35,23 @@ class SectorCategoryController extends Controller {
         }
     }
 
-    public function edit($id) {
+    /**
+     * Show the form for editing the specified resource.
+     */
+    public function edit($id) 
+    {
         $categories = SectorCategory::all();
         $editingCategory = SectorCategory::findOrFail($id);
         return view('admin.categories', compact('categories', 'editingCategory'));
     }
 
-    public function update(Request $request, $id) {
+    /**
+     * Update the specified resource in storage.
+     */
+    public function update(Request $request, $id) 
+    {
         $category = SectorCategory::findOrFail($id);
+        
         $request->validate([
             'name' => "required|string|max:255|unique:sector_categories,name,{$id}"
         ]);

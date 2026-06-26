@@ -22,17 +22,10 @@ class SectorCategory extends Model
     {
         static::creating(function (SectorCategory $category) {
             if (empty($category->id)) {
-                // Generates 'cat-dry-yeast' cleanly from your input name string
                 $category->id = 'cat-' . Str::slug($category->name);
             }
         });
     }
-    public function create()
-{
-    // 1. Ensure you are using the correct model name: SectorCategory
-    // 2. Ensure you have 'use App\Models\SectorCategory;' at the top of your file
-    $categories = \App\Models\SectorCategory::all();
-
-    return view('admin.products.create', compact('categories'));
-}
+    
+    // REMOVED: The create() method that was here before.
 }
