@@ -66,4 +66,10 @@ class ProductController extends Controller
         return redirect()->route('admin.products.index')
                          ->with('success', 'Product registered in the system inventory matrix successfully!');
     }
+    public function edit($id)
+{
+    $product = \App\Models\Product::findOrFail($id);
+    // आफ्नो आवश्यकता अनुसार view को पाथ मिलाउनुहोस्
+    return view('admin.products.edit', compact('product'));
+}
 }

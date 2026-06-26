@@ -6,12 +6,15 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    public function up(): void
-    {
-        Schema::table('cheques', function (Blueprint $table) {
+public function up()
+{
+    Schema::table('cheques', function (Blueprint $table) {
+        // कोलम नभए मात्र थप्ने लजिक
+        if (!Schema::hasColumn('cheques', 'email_sent_at')) {
             $table->timestamp('email_sent_at')->nullable();
-        });
-    }
+        }
+    });
+}
 
     public function down(): void
     {

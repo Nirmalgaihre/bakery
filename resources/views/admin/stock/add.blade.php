@@ -1,82 +1,73 @@
 @extends('layouts.admin')
 
-@section('title', 'Refurbish Stock Inventory - Admin Console | Deurali Chemicals Pvt Ltd')
-@section('panel_title', 'Warehouse Inventory Adjustments')
+@section('title', 'Refurbish Stock Inventory')
 
 @section('content')
-<div class="max-w-xl w-full mx-auto">
+<div class="max-w-xl w-full mx-auto" x-data="{ 
+    qty: {{ old('quantity', 1) }}, 
+    cost: {{ old('purchase_cost', $product->purchase_cost ?? 0) }},
+    price: {{ old('selling_price', $product->selling_price ?? 0) }}
+}">
 
-    {{-- Error Display --}}
-    @if($errors->any())
-        <div class="mb-5 p-4 bg-rose-50 border-l-4 border-rose-500 text-rose-800 rounded text-sm shadow-xs">
-            <div class="font-bold text-xs uppercase tracking-wide text-rose-700 mb-1">Adjustment Processing Failed:</div>
-            <ul class="list-disc list-inside space-y-0.5 text-xs">
-                @foreach($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
-
-    {{-- Updated Form Action to admin.inventory.store --}}
-    <form action="{{ route('admin.inventory.store', $product->id) }}" method="POST" class="bg-white border border-slate-200 rounded-lg shadow-xs overflow-hidden">
+    {{-- यहाँ route मा admin.purchases.store प्रयोग गरिएको छ --}}
+    <form action="{{ route('admin.purchases.store') }}" method="POST" class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
         @csrf
         
-        <div class="p-4 px-5 border-b border-slate-100 bg-slate-50/70 text-xs font-bold text-slate-600 tracking-wider uppercase flex items-center gap-2">
-            <i class="fa-solid fa-circle-arrow-up text-emerald-600 text-sm"></i> Logistics Inventory & Pricing Adjustment Management
-        </div>
+        {{-- product_id लाई hidden फिल्डको रूपमा पठाउन अनिवार्य छ --}}
+        <input type="hidden" name="product_id" value="{{ $product->id }}">
 
-        <div class="p-6 space-y-5">
-            {{-- Product Info --}}
-            <div class="bg-slate-50 p-4 border border-slate-200/60 rounded flex flex-col gap-1 text-sm">
-                <div class="text-xs text-slate-400 uppercase font-bold tracking-wider">Target Selected Profile Item</div>
-                <div class="text-base font-bold text-slate-800">{{ $product->name }}</div>
-                <div class="text-xs font-medium text-slate-500 mt-1 flex gap-4">
-                    <span>Category Matrix: <strong class="text-slate-700">{{ $product->category->name ?? 'N/A' }}</strong></span>
-                    <span>Current Balances: <strong class="text-slate-700 font-mono">{{ $product->initial_stock }} {{ strtoupper($product->inventory_unit) }}</strong></span>
+        <div class="p-5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-emerald-100 text-emerald-700 rounded-lg">
+                    <i class="fa-solid fa-boxes-stacked"></i>
                 </div>
-            </div>
-
-            {{-- Quantity Input --}}
-            <div class="space-y-1">
-                <label for="quantity" class="block text-xs font-bold text-slate-700 tracking-wide uppercase">Incoming Addition Units Quantity *</label>
-                <div class="relative">
-                    <input type="number" name="quantity" id="quantity" value="{{ old('quantity', 1) }}" min="1" 
-                        class="w-full text-sm p-2 px-3 border border-slate-200 rounded outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-mono font-bold" required>
-                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold font-mono text-slate-400 uppercase">
-                        {{ $product->inventory_unit }}
-                    </span>
+                <div>
+                    <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wide">Update Stock Manifest</h2>
+                    <p class="text-[10px] text-slate-500 uppercase font-bold">Refurbishing: {{ $product->name }}</p>
                 </div>
-            </div>
-
-            {{-- Pricing Grid --}}
-            <div class="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
-                <div class="space-y-1">
-                    <label for="purchase_cost" class="block text-xs font-bold text-slate-700 tracking-wide uppercase">Current Purchase Cost (Rs.) *</label>
-                    <input type="number" step="0.01" name="purchase_cost" id="purchase_cost" value="{{ old('purchase_cost', $product->purchase_cost) }}" 
-                        class="w-full text-sm p-2 px-3 border border-slate-200 rounded outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono" required>
-                </div>
-
-                <div class="space-y-1">
-                    <label for="selling_price" class="block text-xs font-bold text-slate-700 tracking-wide uppercase">New Market Selling Price (Rs.) *</label>
-                    <input type="number" step="0.01" name="selling_price" id="selling_price" value="{{ old('selling_price', $product->selling_price) }}" 
-                        class="w-full text-sm p-2 px-3 border border-slate-200 rounded outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono font-bold text-emerald-700" required>
-                </div>
-            </div>
-
-            {{-- Note Input --}}
-            <div class="space-y-1">
-                <label for="reference_note" class="block text-xs font-bold text-slate-700 tracking-wide uppercase">Reference Journal Log Note / Invoice Code</label>
-                <input type="text" name="reference_note" id="reference_note" value="{{ old('reference_note') }}" placeholder="e.g., Rate badhera aayeko naya batch invoice #991..." 
-                    class="w-full text-sm p-2 px-3 border border-slate-200 rounded outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all">
             </div>
         </div>
 
-        {{-- Footer --}}
+        <div class="p-6 space-y-6">
+            {{-- Summary Card --}}
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                    <p class="text-[9px] text-slate-400 font-bold uppercase">Current Inventory</p>
+                    <p class="text-lg font-mono font-bold text-slate-800">{{ $product->initial_stock }} <span class="text-xs text-slate-400">{{ strtoupper($product->inventory_unit) }}</span></p>
+                </div>
+                <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                    <p class="text-[9px] text-emerald-600 font-bold uppercase">New Total After Update</p>
+                    <p class="text-lg font-mono font-bold text-emerald-800" x-text="parseFloat(qty) + parseFloat({{ $product->initial_stock }})"></p>
+                </div>
+            </div>
+
+            {{-- Inputs --}}
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Incoming Addition (Quantity)</label>
+                    <input type="number" x-model="qty" name="quantity" class="w-full text-sm p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none font-bold" required>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Purchase Cost (Rs)</label>
+                        <input type="number" step="0.01" x-model="cost" name="purchase_cost" class="w-full text-sm p-3 border border-slate-200 rounded-lg focus:border-emerald-500 outline-none transition-all font-mono" required>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Selling Price (Rs)</label>
+                        <input type="number" step="0.01" x-model="price" name="selling_price" class="w-full text-sm p-3 border border-emerald-500 rounded-lg bg-emerald-50 outline-none font-bold text-emerald-700 transition-all font-mono">
+                    </div>
+                </div>
+            </div>
+
+            <input type="text" name="reference_note" placeholder="Add a log note for this update..." 
+                class="w-full text-sm p-3 border border-slate-200 rounded-lg focus:border-blue-500 outline-none">
+        </div>
+
         <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
-            <a href="{{ route('admin.products.index') }}" class="bg-white border border-slate-200 hover:bg-slate-100 text-slate-600 font-semibold text-xs px-4 py-2 rounded transition-colors uppercase tracking-wide flex items-center">Cancel</a>
-            <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-5 py-2 rounded shadow-xs transition-colors uppercase tracking-wide flex items-center gap-1.5">
-                <i class="fa-solid fa-square-check"></i> Commit Stock & Price Adjustments
+            <a href="{{ route('admin.products.index') }}" class="px-4 py-2 text-xs font-bold text-slate-500 uppercase hover:text-slate-800 transition-colors">Cancel</a>
+            <button type="submit" class="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-lg shadow-emerald-200 transition-all flex items-center gap-2">
+                <i class="fa-solid fa-save"></i> Save Inventory Update
             </button>
         </div>
     </form>

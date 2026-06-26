@@ -1,4 +1,3 @@
 <?php
 use Illuminate\Support\Facades\Schedule;
-
-Schedule::command('cheques:send-reminders')->dailyAt('21:45');
+Schedule::command('cheques:send-reminders')->dailyAt('09:52');

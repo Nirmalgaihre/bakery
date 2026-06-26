@@ -9,66 +9,6 @@
     <div class="lg:col-span-2 space-y-6">
         
         <div class="bg-white border border-slate-200 rounded-md shadow-sm overflow-hidden">
-            <div class="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                <div>
-                    <h2 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                        <span class="w-1 h-4 bg-blue-600 inline-block rounded-xs"></span>
-                        Register New Corporate / Private Account
-                    </h2>
-                </div>
-            </div>
-            
-            <form action="{{ route('admin.customers.store') }}" method="POST" class="p-4 space-y-4">
-                @csrf
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div class="space-y-1">
-                        <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Company / Customer Name *</label>
-                        <input type="text" name="name" required value="{{ old('name') }}" placeholder="e.g. Kathmandu Pastry House" 
-                            class="w-full px-3 py-1.5 border border-slate-200 text-xs rounded focus:outline-none focus:border-blue-500 text-slate-700">
-                        @error('name') <p class="text-[10px] text-red-500 mt-0.5">{{ $message }}</p> @enderror
-                    </div>
-                    
-                    <div class="space-y-1">
-                        <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Active Contact Telephone *</label>
-                        <input type="text" name="phone_number" required value="{{ old('phone_number') }}" placeholder="e.g. 9841837482" 
-                            class="w-full px-3 py-1.5 border border-slate-200 text-xs rounded focus:outline-none focus:border-blue-500 text-slate-700 font-mono">
-                        @error('phone_number') <p class="text-[10px] text-red-500 mt-0.5">{{ $message }}</p> @enderror
-                    </div>
-
-                    <div class="space-y-1">
-                        <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider">PAN / VAT Registration No.</label>
-                        <input type="text" name="pan_number" value="{{ old('pan_number') }}" placeholder="9-digit regulatory number" 
-                            class="w-full px-3 py-1.5 border border-slate-200 text-xs rounded focus:outline-none focus:border-blue-500 text-slate-700 font-mono uppercase">
-                        @error('pan_number') <p class="text-[10px] text-red-500 mt-0.5">{{ $message }}</p> @enderror
-                    </div>
-
-                    <div class="space-y-1">
-                        <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Opening Credit Balance (NPR)</label>
-                        <input type="number" name="previous_due" step="0.01" min="0" value="{{ old('previous_due') }}" placeholder="0.00" 
-                            class="w-full px-3 py-1.5 border border-slate-200 text-xs rounded focus:outline-none focus:border-blue-500 text-slate-700 font-mono">
-                        @error('previous_due') <p class="text-[10px] text-red-500 mt-0.5">{{ $message }}</p> @enderror
-                    </div>
-
-                    <div class="space-y-1 sm:col-span-2">
-                        <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Billing Street Address *</label>
-                        <textarea name="address" required rows="2" placeholder="New Road, Kathmandu, Nepal" 
-                            class="w-full px-3 py-1.5 border border-slate-200 text-xs rounded focus:outline-none focus:border-blue-500 text-slate-700 resize-none">{{ old('address') }}</textarea>
-                        @error('address') <p class="text-[10px] text-red-500 mt-0.5">{{ $message }}</p> @enderror
-                    </div>
-                </div>
-
-                <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                    <button type="reset" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs uppercase rounded transition-colors">
-                        Cancel
-                    </button>
-                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase rounded transition-colors shadow-xs">
-                        Save Profile
-                    </button>
-                </div>
-            </form>
-        </div>
-
-        <div class="bg-white border border-slate-200 rounded-md shadow-sm overflow-hidden">
             <div class="p-4 border-b border-slate-100 bg-slate-50/50">
                 <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Customer Registry Table</h3>
                 <p class="text-[11px] text-slate-400 mt-0.5">Regular accounts, cafes, wholesale dealers, and delivery channels</p>
@@ -133,11 +73,9 @@ document.addEventListener('DOMContentLoaded', function() {
         row.addEventListener('click', function() {
             const id = this.getAttribute('data-id');
             
-            // Highlight active row styling rules
             rows.forEach(r => r.classList.remove('bg-blue-50/60', 'border-l-blue-600'));
             this.classList.add('bg-blue-50/60', 'border-l-blue-600');
 
-            // Set dynamic loading visual state inside sidebar element
             displayPanel.innerHTML = `
                 <div class="animate-pulse space-y-6">
                     <div class="flex items-center gap-3">
@@ -157,14 +95,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 </div>`;
 
-            // Execute AJAX backend data payload hook lookup
             fetch(`/admin/customers/${id}`)
                 .then(response => {
                     if (!response.ok) throw new Error('Database response data lookup error');
                     return response.text();
                 })
                 .then(htmlPartial => {
-                    // Inject real dynamic partial layout segment context code
                     displayPanel.innerHTML = htmlPartial;
                 })
                 .catch(error => {

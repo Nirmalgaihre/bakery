@@ -27,4 +27,12 @@ class SectorCategory extends Model
             }
         });
     }
+    public function create()
+{
+    // 1. Ensure you are using the correct model name: SectorCategory
+    // 2. Ensure you have 'use App\Models\SectorCategory;' at the top of your file
+    $categories = \App\Models\SectorCategory::all();
+
+    return view('admin.products.create', compact('categories'));
+}
 }

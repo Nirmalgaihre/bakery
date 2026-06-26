@@ -18,11 +18,17 @@ class InvoiceController extends Controller
     /**
      * Display a listing of invoices.
      */
-    public function index()
-    {
-        $invoices = Invoice::orderBy('invoice_date', 'desc')->paginate(15);
-        return view('admin.invoices.index', compact('invoices'));
-    }
+public function index()
+{
+    // फोन नम्बर अनुसार Grouping गरेर डेटा लिने
+    $invoices = \App\Models\Invoice::with(['customer', 'items'])
+        ->get()
+        ->groupBy(function($invoice) {
+            return $invoice->customer ? $invoice->customer->phone_number : 'Walk-in';
+        });
+
+    return view('admin.invoices.index', compact('invoices'));
+}
 
     /**
      * Show the form for creating a new invoice.
@@ -172,4 +178,17 @@ class InvoiceController extends Controller
 
         return view('admin.sales.customer-ledger', compact('customerInvoices', 'customerName', 'customer', 'ledgerLogs'));
     }
-} // <-- This is the last curly brace closing the entire Controller class
+    // App\Http\Controllers\Admin\InvoiceController.php
+public function show($id)
+{
+    // Fetch the invoice
+    $invoice = \App\Models\Invoice::with(['items.product'])->findOrFail($id);
+
+    // If you are using 'invoice_items' table:
+    $calculatedSubtotal = $invoice->items->sum(function($item) {
+        return $item->quantity * $item->price;
+    });
+
+    return view('admin.invoices.show', compact('invoice', 'calculatedSubtotal'));
+}
+}

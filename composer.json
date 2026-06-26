@@ -8,12 +8,14 @@
     "require": {
         "php": "^8.3",
         "anuzpandey/laravel-nepali-date": "^3.3",
+        "berkayk/onesignal-laravel": "^2.5",
         "laravel/framework": "^13.8",
         "laravel/tinker": "^3.0",
         "phpmailer/phpmailer": "^7.1",
         "setasign/fpdf": "^1.8",
         "spatie/browsershot": "^5.4",
-        "spatie/laravel-backup": "^10.3"
+        "spatie/laravel-backup": "^10.3",
+        "spatie/laravel-permission": "^8.0"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -29,7 +31,10 @@
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
-        }
+        },
+        "files": [
+            "app/Helpers/FiscalYearHelper.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {

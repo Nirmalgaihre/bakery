@@ -22,13 +22,12 @@ class CustomerController extends Controller
 
     /**
      * Show the form for creating a new customer.
-     * Maps securely back to the main directory view containing our side-by-side creation workspace.
+     * Modified to load a dedicated creation page.
      */
     public function create()
     {
-        $customers = Customer::latest()->get();
-        
-        return view('admin.customers.index', compact('customers'));
+        // अब यो मेथडले छुट्टै create view लोड गर्छ
+        return view('admin.customers.create');
     }
 
     /**
@@ -127,4 +126,16 @@ class CustomerController extends Controller
                 ->with('error', 'Failed to update customer: ' . $e->getMessage());
         }
     }
+    public function showLedger($id)
+{
+    // कस्टमर खोज्ने
+    $customer = Customer::findOrFail($id);
+    
+    // ट्रान्जेक्सनहरू खोज्ने (तपाईंको डेटाबेसको 'transactions' टेबल अनुसार)
+    $transactions = $customer->transactions()->orderBy('created_at', 'asc')->get();
+
+    // अब यसले 'admin.customers.ledger' भ्यू खोल्छ
+    // तपाईंको फाइलको लोकेसन अनुसार नाम सच्याउनुहोस् (जस्तै: 'admin.ledger.ledger')
+    return view('admin.ledger.ledger', compact('customer', 'transactions'));
+}
 }

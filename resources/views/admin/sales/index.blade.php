@@ -1,6 +1,7 @@
 @extends('layouts.admin')
 
 @section('content')
+<link href="https://nepalidatepicker.sajanmaharjan.com.np/v5/nepali.datepicker/css/nepali.datepicker.v5.0.6.min.css" rel="stylesheet" type="text/css"/>
 <div class="container mx-auto py-6 px-4 max-w-7xl font-sans antialiased text-slate-600">
     
     @if(session('success'))
@@ -90,9 +91,7 @@
                 
                 <tr class="ledger-row hover:bg-slate-50 transition-colors cursor-pointer"
                     data-status="{{ $statusValue }}"
-                    onclick="window.location='{{ route('admin.sales.customer-ledger', $invoice->customer_id) }}'">
-
-                    <td class="py-3 px-4 font-medium text-slate-900 search-target">{{ $invoice->patient_name ?? ($invoice->customer->name ?? 'Walk-in Customer') }}</td>
+data-href="{{ route('admin.invoices.show', $invoice->id) }}">                    <td class="py-3 px-4 font-medium text-slate-900 search-target">{{ $invoice->patient_name ?? ($invoice->customer->name ?? 'Walk-in Customer') }}</td>
                     <td class="py-3 px-4 font-mono text-slate-500 text-[11px] search-target">{{ $invoice->invoice_no }}</td>
                     <td class="py-3 px-4 font-mono text-slate-600">{{ $invoice->nepali_date ?? $invoice->invoice_date }}</td>
                     <td class="py-3 px-4">
@@ -108,11 +107,13 @@
                     <td class="py-3 px-4 text-right font-mono text-slate-500">Rs. {{ number_format($paidAmount, 2) }}</td>
                     <td class="py-3 px-4 text-right font-semibold font-mono text-slate-900">Rs. {{ number_format($grandTotal, 2) }}</td>
                     
-                    <td class="py-3 px-4 text-center" onclick="event.stopPropagation();">
+                    <td class="py-3 px-4 text-center ledger-action-cell">
                         @if($remainingDue > 0)
                             <button type="button" 
-                                onclick="openPaymentModal('{{ $invoice->id }}', '{{ $invoice->invoice_no }}', '{{ $remainingDue }}')" 
-                                class="inline-flex items-center px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-bold rounded shadow-sm transition-colors">
+                                data-payment-id="{{ $invoice->id }}"
+                                data-payment-invoice-no="{{ $invoice->invoice_no }}"
+                                data-payment-due-amount="{{ $remainingDue }}"
+                                class="payment-button inline-flex items-center px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-bold rounded shadow-sm transition-colors">
                                 <i class="fa-solid fa-hand-holding-dollar mr-1"></i> Pay
                             </button>
                         @else
@@ -189,6 +190,15 @@
                         <span class="absolute right-3 top-2.5 text-[10px] font-bold text-slate-400">NPR</span>
                     </div>
                 </div>
+                <!-- Nepali Date Input -->
+<div class="space-y-1">
+    <label class="block text-[11px] font-semibold text-slate-700 uppercase">Payment Date (BS) <span class="text-rose-500">*</span></label>
+    <div class="relative">
+        <input type="text" id="payment_date_bs" name="payment_date_bs" required readonly
+            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono font-bold text-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer bg-white">
+        <i class="fa-solid fa-calendar-days absolute right-3 top-2.5 text-slate-400 text-xs"></i>
+    </div>
+</div>
 
                 <div class="space-y-1">
                     <label class="block text-[11px] font-semibold text-slate-700 uppercase">Received Amount <span class="text-rose-500">*</span></label>
@@ -221,155 +231,468 @@
     </div>
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function () {
+<script>document.addEventListener('DOMContentLoaded', function () {
+
     const searchInput = document.getElementById('ledgerSearch');
     const statusFilter = document.getElementById('statusFilter');
+
     const tableRows = Array.from(document.querySelectorAll('.ledger-row'));
+
     const dynamicNoRecords = document.getElementById('dynamicNoRecordsRow');
     const nativeEmptyRow = document.getElementById('noRecordsRow');
 
-    // Configuration Engine Parameters
-    const rowsPerPage = 10; 
+    const rowsPerPage = 10;
+
     let currentPage = 1;
     let filteredRows = [...tableRows];
 
-    // Layout Selectors
     const lblRangeStart = document.getElementById('lblRangeStart');
     const lblRangeEnd = document.getElementById('lblRangeEnd');
     const lblTotalEntries = document.getElementById('lblTotalEntries');
-    const desktopPageContainer = document.getElementById('desktopPageContainer');
 
-    // Central Filter Coordination Engine (Handles both search & dropdown simultaneously)
+    const desktopPageContainer =
+        document.getElementById('desktopPageContainer');
+
+
+
     function applyCombinedFilters() {
-        const searchQuery = searchInput ? searchInput.value.toLowerCase().trim() : "";
-        const selectedStatus = statusFilter ? statusFilter.value : "ALL";
 
-        filteredRows = tableRows.filter(row => {
-            // Check status condition
-            const matchesStatus = (selectedStatus === "ALL") || (row.getAttribute('data-status') === selectedStatus);
-            
-            // Check text search condition
+        const searchQuery =
+            searchInput.value.toLowerCase().trim();
+
+        const selectedStatus =
+            statusFilter.value;
+
+        filteredRows = tableRows.filter(function(row){
+
+            const matchesStatus =
+                selectedStatus === "ALL" ||
+                row.dataset.status === selectedStatus;
+
             let matchesSearch = true;
-            if (searchQuery !== "") {
-                const targets = row.querySelectorAll('.search-target');
-                matchesSearch = Array.from(targets).some(target => 
-                    target.textContent.toLowerCase().includes(searchQuery)
-                );
+
+            if(searchQuery !== ""){
+
+                matchesSearch =
+                    row.innerText.toLowerCase()
+                    .includes(searchQuery);
+
             }
 
             return matchesStatus && matchesSearch;
+
         });
 
-        currentPage = 1; // Always reset map back to entry index 1
-        updatePaginationUI();
+        currentPage = 1;
+
+        updatePagination();
+
     }
 
-    function updatePaginationUI() {
-        const total = filteredRows.length;
-        const totalPages = Math.ceil(total / rowsPerPage) || 1;
 
-        if (currentPage > totalPages) currentPage = totalPages;
-        if (currentPage < 1) currentPage = 1;
 
-        const startIdx = (currentPage - 1) * rowsPerPage;
-        const endIdx = Math.min(startIdx + rowsPerPage, total);
+    function updatePagination(){
 
-        // Reset visibility structure matrix
-        tableRows.forEach(row => row.classList.add('hidden'));
-        filteredRows.slice(startIdx, endIdx).forEach(row => row.classList.remove('hidden'));
+        const totalRows = filteredRows.length;
 
-        // Handle structural message display states
-        if (total === 0) {
-            if (nativeEmptyRow) nativeEmptyRow.classList.add('hidden');
-            dynamicNoRecords.classList.remove('hidden');
-            lblRangeStart.textContent = '0';
-            lblRangeEnd.textContent = '0';
-        } else {
-            dynamicNoRecords.classList.add('hidden');
-            lblRangeStart.textContent = total > 0 ? startIdx + 1 : 0;
-            lblRangeEnd.textContent = endIdx;
+        const totalPages =
+            Math.max(1, Math.ceil(totalRows / rowsPerPage));
+
+        if(currentPage > totalPages){
+
+            currentPage = totalPages;
+
         }
-        lblTotalEntries.textContent = total;
 
-        // Render Numeric Links Panel
-        desktopPageContainer.innerHTML = '';
-        for (let i = 1; i <= totalPages; i++) {
-            const isCurrent = i === currentPage;
-            const btn = document.createElement('button');
-            btn.className = `relative inline-flex items-center px-3 py-1.5 border text-xs font-medium transition-colors ${
-                isCurrent 
-                ? 'z-10 bg-slate-800 border-slate-800 text-white font-semibold' 
-                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-            }`;
-            btn.textContent = i;
-            btn.addEventListener('click', () => {
-                currentPage = i;
-                updatePaginationUI();
+        tableRows.forEach(function(row){
+
+            row.classList.add('hidden');
+
+        });
+
+        const start =
+            (currentPage - 1) * rowsPerPage;
+
+        const end =
+            start + rowsPerPage;
+
+        filteredRows
+            .slice(start,end)
+            .forEach(function(row){
+
+                row.classList.remove('hidden');
+
             });
-            desktopPageContainer.appendChild(btn);
+
+        if(totalRows===0){
+
+            dynamicNoRecords.classList.remove('hidden');
+
+            if(nativeEmptyRow){
+
+                nativeEmptyRow.classList.add('hidden');
+
+            }
+
+        }else{
+
+            dynamicNoRecords.classList.add('hidden');
+
         }
 
-        // Toggle state disabled styles
-        const isFirst = currentPage === 1;
-        const isLast = currentPage === totalPages;
-        
-        document.getElementById('btnPrevDesktop').disabled = isFirst;
-        document.getElementById('btnNextDesktop').disabled = isLast;
-        document.getElementById('btnPrevMobile').disabled = isFirst;
-        document.getElementById('btnNextMobile').disabled = isLast;
+        lblRangeStart.innerHTML =
+            totalRows==0 ? 0 : start+1;
+
+        lblRangeEnd.innerHTML =
+            Math.min(end,totalRows);
+
+        lblTotalEntries.innerHTML =
+            totalRows;
+
+        desktopPageContainer.innerHTML="";
+
+        for(let i=1;i<=totalPages;i++){
+
+            const btn=document.createElement("button");
+
+            btn.type="button";
+
+            btn.innerHTML=i;
+
+            btn.className=
+                "relative inline-flex items-center px-3 py-1.5 border text-xs " +
+                (i===currentPage
+                ? "bg-slate-800 text-white border-slate-800"
+                : "bg-white border-slate-200 hover:bg-slate-100");
+
+            btn.addEventListener("click",function(){
+
+                currentPage=i;
+
+                updatePagination();
+
+            });
+
+            desktopPageContainer.appendChild(btn);
+
+        }
+
+        document.getElementById("btnPrevDesktop").disabled =
+            currentPage===1;
+
+        document.getElementById("btnNextDesktop").disabled =
+            currentPage===totalPages;
+
+        document.getElementById("btnPrevMobile").disabled =
+            currentPage===1;
+
+        document.getElementById("btnNextMobile").disabled =
+            currentPage===totalPages;
+
     }
 
-    // Event Triggers
-    if (searchInput) {
-        searchInput.addEventListener('input', applyCombinedFilters);
-    }
-    if (statusFilter) {
-        statusFilter.addEventListener('change', applyCombinedFilters);
+
+
+    searchInput.addEventListener("keyup",applyCombinedFilters);
+
+    statusFilter.addEventListener("change",applyCombinedFilters);
+
+
+
+    document
+        .getElementById("btnPrevDesktop")
+        .addEventListener("click",function(){
+
+            if(currentPage>1){
+
+                currentPage--;
+
+                updatePagination();
+
+            }
+
+        });
+
+
+
+    document
+        .getElementById("btnNextDesktop")
+        .addEventListener("click",function(){
+
+            if(currentPage < Math.ceil(filteredRows.length/rowsPerPage)){
+
+                currentPage++;
+
+                updatePagination();
+
+            }
+
+        });
+
+
+
+    document
+        .getElementById("btnPrevMobile")
+        .addEventListener("click",function(){
+
+            if(currentPage>1){
+
+                currentPage--;
+
+                updatePagination();
+
+            }
+
+        });
+
+
+
+    document
+        .getElementById("btnNextMobile")
+        .addEventListener("click",function(){
+
+            if(currentPage < Math.ceil(filteredRows.length/rowsPerPage)){
+
+                currentPage++;
+
+                updatePagination();
+
+            }
+
+        });
+
+
+
+    document
+        .getElementById("ledgerTableBody")
+        .addEventListener("click",function(e){
+
+            const payBtn =
+                e.target.closest(".payment-button");
+
+            if(payBtn){
+
+                e.preventDefault();
+
+                e.stopPropagation();
+
+                openPaymentModal(
+
+                    payBtn.dataset.paymentId,
+
+                    payBtn.dataset.paymentInvoiceNo,
+
+                    payBtn.dataset.paymentDueAmount
+
+                );
+
+                return;
+
+            }
+
+            const row =
+                e.target.closest(".ledger-row");
+
+            if(row){
+
+                window.location.href =
+                    row.dataset.href;
+
+            }
+
+        });
+
+    updatePagination();
+
+});
+/* ===========================================================
+   PAYMENT MODAL
+=========================================================== */
+
+let nepaliPickerLoaded = false;
+
+function openPaymentModal(id, invoiceNo, dueAmount) {
+
+    const modal = document.getElementById("paymentModal");
+
+    document.getElementById("modal_invoice_no").innerText = invoiceNo;
+
+    document.getElementById("modal_due_amount").value =
+        parseFloat(dueAmount).toFixed(2);
+
+    const amountInput =
+        document.getElementById("received_amount");
+
+    amountInput.value = "";
+
+    amountInput.max = parseFloat(dueAmount);
+
+    document.getElementById("paymentForm").action =
+        "/admin/sales/" + id + "/update-payment";
+
+    const dateInput =
+        document.getElementById("payment_date_bs");
+
+    if (!nepaliPickerLoaded) {
+
+        dateInput.NepaliDatePicker({
+
+            dateFormat: "YYYY-MM-DD",
+
+            closeOnDateSelect: true
+
+        });
+
+        nepaliPickerLoaded = true;
+
     }
 
-    // Pagination Click Controls
-    document.getElementById('btnPrevDesktop').addEventListener('click', () => { if(currentPage > 1) { currentPage--; updatePaginationUI(); } });
-    document.getElementById('btnNextDesktop').addEventListener('click', () => { if(currentPage * rowsPerPage < filteredRows.length) { currentPage++; updatePaginationUI(); } });
-    document.getElementById('btnPrevMobile').addEventListener('click', () => { if(currentPage > 1) { currentPage--; updatePaginationUI(); } });
-    document.getElementById('btnNextMobile').addEventListener('click', () => { if(currentPage * rowsPerPage < filteredRows.length) { currentPage++; updatePaginationUI(); } });
+    modal.classList.remove("hidden");
 
-    // Initial Bootstrap
-    updatePaginationUI();
+    modal.classList.add("flex");
+
+    setTimeout(function () {
+
+        amountInput.focus();
+
+    }, 200);
+
+}
+
+
+
+function closePaymentModal() {
+
+    const modal =
+        document.getElementById("paymentModal");
+
+    modal.classList.remove("flex");
+
+    modal.classList.add("hidden");
+
+    document.getElementById("paymentForm").reset();
+
+}
+
+
+
+/* ===========================================================
+   CLOSE MODAL
+=========================================================== */
+
+window.addEventListener("click", function (e) {
+
+    const modal =
+        document.getElementById("paymentModal");
+
+    if (e.target === modal) {
+
+        closePaymentModal();
+
+    }
+
 });
 
-/**
- * Functional Logic to Trigger Dynamic Credit Recovery Terminal Model
- */
-function openPaymentModal(id, invoiceNo, dueAmount) {
-    document.getElementById('modal_invoice_no').innerText = invoiceNo;
-    document.getElementById('modal_due_amount').value = parseFloat(dueAmount).toFixed(2);
-    
-    const amountInput = document.getElementById('received_amount');
-    amountInput.value = ''; 
-    amountInput.max = dueAmount; 
 
-    document.getElementById('paymentForm').action = "/admin/sales/" + id + "/update-payment";
-    
-    const modal = document.getElementById('paymentModal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-}
 
-/**
- * Handles Closing Operations for Payment Modal Context
- */
-function closePaymentModal() {
-    const modal = document.getElementById('paymentModal');
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-}
+document.addEventListener("keydown", function (e) {
 
-window.onclick = function(event) {
-    const modal = document.getElementById('paymentModal');
-    if (event.target == modal) {
+    if (e.key === "Escape") {
+
         closePaymentModal();
+
     }
+
+});
+
+
+
+/* ===========================================================
+   PAYMENT VALIDATION
+=========================================================== */
+
+const paymentForm =
+    document.getElementById("paymentForm");
+
+if (paymentForm) {
+
+    paymentForm.addEventListener("submit", function (e) {
+
+        const due =
+            parseFloat(
+                document.getElementById("modal_due_amount").value
+            );
+
+        const received =
+            parseFloat(
+                document.getElementById("received_amount").value
+            );
+
+        const paymentDate =
+            document.getElementById("payment_date_bs").value;
+
+        if (paymentDate == "") {
+
+            alert("Please select payment date.");
+
+            e.preventDefault();
+
+            return false;
+
+        }
+
+        if (isNaN(received) || received <= 0) {
+
+            alert("Enter valid payment amount.");
+
+            e.preventDefault();
+
+            return false;
+
+        }
+
+        if (received > due) {
+
+            alert("Received amount cannot exceed Due Amount.");
+
+            e.preventDefault();
+
+            return false;
+
+        }
+
+    });
+
 }
+
+
+
+/* ===========================================================
+   AUTO CLOSE ALERT
+=========================================================== */
+
+setTimeout(function () {
+
+    document.querySelectorAll(".bg-emerald-50,.bg-rose-50")
+        .forEach(function (el) {
+
+            el.style.transition = ".4s";
+
+            el.style.opacity = "0";
+
+            setTimeout(function () {
+
+                if (el.parentNode) {
+
+                    el.remove();
+
+                }
+
+            }, 400);
+
+        });
+
+}, 5000);
 </script>
+<script src="https://nepalidatepicker.sajanmaharjan.com.np/v5/nepali.datepicker/js/nepali.datepicker.v5.0.6.min.js"></script>
 @endsection

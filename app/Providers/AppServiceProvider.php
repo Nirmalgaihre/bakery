@@ -13,10 +13,8 @@ class AppServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        // 1. Observer to automate email alerts
         Product::observe(ProductObserver::class);
 
-        // 2. View Composer for the UI Bell Icon
         View::composer('layouts.admin', function ($view) {
             $lowStockProducts = Product::where('initial_stock', '<=', 5)->get();
             

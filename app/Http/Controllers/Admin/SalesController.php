@@ -29,6 +29,7 @@ class SalesController extends Controller
             'products', 'customers', 'currentNepaliDate', 'next_invoice_number'
         ));
     }
+    
 
     /**
      * Dashboard with Chart Data and Customer List.
@@ -113,8 +114,10 @@ class SalesController extends Controller
      */
     public function index(Request $request)
     {
-        $invoices = Invoice::with('customer')->latest()->paginate(15);
-        return view('admin.sales.index', compact('invoices'));
+        // Fetch products with pagination
+        $products = Product::latest()->paginate(15);
+        
+        return view('admin.inventory.index', compact('products'));
     }
 
     /**
@@ -330,5 +333,45 @@ public function updatePayment(Request $request, $id)
     } catch (\Exception $e) {
         return redirect()->back()->with('error', 'त्रुटि: ' . $e->getMessage());
     }
+}
+
+public function itemAnalysis(Request $request)
+{
+    $customers = Customer::orderBy('name', 'asc')->get();
+    
+    $products = collect();
+    $productHistory = collect();
+    $totalQty = 0;
+    $grandTotal = 0;
+    $selectedProduct = null;
+
+    // Tier 2: If customer selected, get all unique products purchased
+    if ($request->filled('customer_id')) {
+        $products = DB::table('invoice_items')
+            ->join('invoices', 'invoice_items.invoice_id', '=', 'invoices.id')
+            ->where('invoices.customer_id', $request->customer_id)
+            ->select('product_id', 'product_name')
+            ->distinct()
+            ->get();
+    }
+
+    // Tier 3: If product selected, get detailed transaction history
+    if ($request->filled('customer_id') && $request->filled('product_id')) {
+        $selectedProduct = $request->product_name;
+        $productHistory = DB::table('invoice_items')
+            ->join('invoices', 'invoice_items.invoice_id', '=', 'invoices.id')
+            ->where('invoices.customer_id', $request->customer_id)
+            ->where('invoice_items.product_id', $request->product_id)
+            ->select('invoices.invoice_no', 'invoices.invoice_date', 'invoice_items.qty', 'invoice_items.price', 'invoice_items.total')
+            ->orderBy('invoices.invoice_date', 'desc')
+            ->get();
+        
+        $totalQty = $productHistory->sum('qty');
+        $grandTotal = $productHistory->sum('total');
+    }
+
+    return view('admin.sales.item-analysis', compact(
+        'customers', 'products', 'productHistory', 'totalQty', 'grandTotal', 'selectedProduct'
+    ));
 }
 }
