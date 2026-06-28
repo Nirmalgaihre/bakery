@@ -472,7 +472,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Submit Logic execution
+   // Submit Logic execution
     submitBtn.addEventListener('click', function () {
         hideError();
         if (cart.length === 0) { showError('Your cart is empty.'); return; }
@@ -499,6 +499,7 @@ document.addEventListener('DOMContentLoaded', function () {
         submitBtn.disabled  = true;
         submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
 
+        // ===================== REPLACE FROM HERE =====================
         fetch(checkoutUrl, {
             method  : 'POST',
             headers : {
@@ -510,7 +511,24 @@ document.addEventListener('DOMContentLoaded', function () {
             body: JSON.stringify(payload),
         })
         .then(async res => {
-            const data = await res.json();
+            // Read the response as TEXT first — never assume it's JSON.
+            // Laravel can return an HTML page (419 session expired, 500 error page, etc.)
+            const rawText = await res.text();
+            let data;
+            try {
+                data = JSON.parse(rawText);
+            } catch (parseErr) {
+                console.error('Non-JSON response from server (first 500 chars):', rawText.slice(0, 500));
+                let friendlyMsg;
+                if (res.status === 419) {
+                    friendlyMsg = 'Your session expired. Please refresh the page and try again.';
+                } else if (res.status === 500) {
+                    friendlyMsg = 'Server error (HTTP 500). Check storage/logs/laravel.log for details.';
+                } else {
+                    friendlyMsg = `Unexpected server response (HTTP ${res.status}). Check Laravel logs.`;
+                }
+                throw new Error(friendlyMsg);
+            }
             return { status: res.status, data };
         })
         .then(result => {
@@ -526,7 +544,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 // 2. Build the precise structural clone of partials/alert.blade.php
                 const toastId = 'dynamic-alert-' + Date.now();
                 const progressId = 'dynamic-progress-' + Date.now();
-                
+
                 const toastHTML = `
                     <div id="${toastId}" 
                          class="pointer-events-auto relative flex items-start bg-white p-4 pb-5 shadow-xl rounded border border-slate-100 transition-all duration-500 ease-out translate-x-full opacity-0 overflow-hidden">
@@ -540,18 +558,16 @@ document.addEventListener('DOMContentLoaded', function () {
                         <button onclick="dismissDynamicAlert('${toastId}')" class="text-slate-300 hover:text-slate-400 ml-4 transition-colors">
                             <i class="fa-solid fa-xmark text-sm"></i>
                         </button>
-                        
+
                         <div class="absolute bottom-0 left-0 h-1 bg-emerald-500 w-full origin-left transition-transform duration-[5000ms] ease-linear scale-x-0" id="${progressId}"></div>
                     </div>
                 `;
 
-                // Append the raw HTML string template into view space
                 alertContainer.insertAdjacentHTML('beforeend', toastHTML);
 
                 const dynamicAlert = document.getElementById(toastId);
                 const dynamicBar = document.getElementById(progressId);
 
-                // Run entry transition slide elements
                 setTimeout(() => {
                     if (dynamicAlert) {
                         dynamicAlert.classList.remove('translate-x-full', 'opacity-0');
@@ -559,7 +575,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 }, 100);
 
-                // Initialize bottom countdown border expansion timeline rules
                 setTimeout(() => {
                     if (dynamicBar) {
                         dynamicBar.classList.remove('scale-x-0');
@@ -567,7 +582,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 }, 300);
 
-                // 3. Trigger dynamic exit sequence and route page forwarding change
                 setTimeout(() => {
                     dismissDynamicAlert(toastId);
                     setTimeout(() => {
@@ -576,15 +590,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 }, 4000);
 
             } else {
-                showError('Validation Error: ' + (result.data.message || 'Verification Failed.'));
+                showError('Error: ' + (result.data.message || 'Request failed.'));
                 resetSubmitBtn();
             }
         })
         .catch(err => {
             console.error("POS Submission Debug Log:", err);
-            showError('Network/Server Connectivity Failure. Check browser log records.');
+            showError(err.message || 'Request failed. Check browser console for details.');
             resetSubmitBtn();
         });
+        // ===================== REPLACE UNTIL HERE =====================
     });
 });
 </script>

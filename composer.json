@@ -8,7 +8,6 @@
     "require": {
         "php": "^8.3",
         "anuzpandey/laravel-nepali-date": "^3.3",
-        "berkayk/onesignal-laravel": "^2.5",
         "laravel/framework": "^13.8",
         "laravel/tinker": "^3.0",
         "phpmailer/phpmailer": "^7.1",

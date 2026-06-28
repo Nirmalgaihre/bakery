@@ -3,6 +3,10 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Notification;
+use App\Notifications\LowStockAlert;
 
 class Product extends Model
 {
@@ -14,51 +18,50 @@ class Product extends Model
         'inventory_unit',
         'initial_stock',
         'alert_stock_level',
+        'alert_sent',
     ];
 
-    /**
-     * Relationship link to historical ledger transactions.
-     */
     public function transactions()
     {
         return $this->hasMany(\App\Models\StockTransaction::class);
     }
+
     protected static function booted()
     {
         static::saved(function ($product) {
             if ($product->initial_stock <= $product->alert_stock_level && !$product->alert_sent) {
-                
-                // Fetch all users who are admins
-                // Assuming you have a 'role' column or similar way to identify admins
-                $adminEmails = User::where('role', 'admin')->pluck('email');
 
-                if ($adminEmails->isNotEmpty()) {
-                    Mail::to($adminEmails)->send(new LowStockAlert($product));
+                $adminUsers = User::where('role', 'admin')->get();
+
+                if ($adminUsers->isNotEmpty()) {
+                    Notification::send($adminUsers, new LowStockAlert($product));
                 }
-                
+
                 $product->updateQuietly(['alert_sent' => true]);
-                
+
             } elseif ($product->initial_stock > $product->alert_stock_level && $product->alert_sent) {
-                
+
                 $product->updateQuietly(['alert_sent' => false]);
             }
         });
     }
+
     public function checkAndSendAlert()
     {
-        // 1. Check if stock is low
         if ($this->initial_stock <= $this->alert_stock_level) {
-            
+
             $cacheKey = 'low_stock_alert_' . $this->id;
 
-            // 2. Prevent spam (24-hour cooldown)
             if (!Cache::has($cacheKey)) {
                 $adminEmail = 'gaihrenirmal2021@gmail.com';
-                
-                Mail::raw("CRITICAL STOCK ALERT!\n\nProduct: {$this->name}\nRemaining Stock: {$this->initial_stock} {$this->inventory_unit}\nThreshold: {$this->alert_stock_level}", 
-                function ($message) use ($adminEmail) {
-                    $message->to($adminEmail)->subject('Low Stock Alert: ' . $this->name);
-                });
+                $productName = $this->name;
+
+                Mail::raw(
+                    "CRITICAL STOCK ALERT!\n\nProduct: {$this->name}\nRemaining Stock: {$this->initial_stock} {$this->inventory_unit}\nThreshold: {$this->alert_stock_level}",
+                    function ($message) use ($adminEmail, $productName) {
+                        $message->to($adminEmail)->subject('Low Stock Alert: ' . $productName);
+                    }
+                );
 
                 Cache::put($cacheKey, true, now()->addHours(24));
             }

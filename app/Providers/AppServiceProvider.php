@@ -7,17 +7,14 @@ use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\Schema;
 use App\Models\Product;
 use App\Models\Cheque;
-use App\Observers\ProductObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        Product::observe(ProductObserver::class);
-
         View::composer('layouts.admin', function ($view) {
             $lowStockProducts = Product::where('initial_stock', '<=', 5)->get();
-            
+
             $chequesDue = collect();
             if (Schema::hasTable('cheques') && Schema::hasColumn('cheques', 'due_date')) {
                 $chequesDue = Cheque::whereDate('due_date', now()->toDateString())->get();
@@ -26,8 +23,8 @@ class AppServiceProvider extends ServiceProvider
             $totalCount = $lowStockProducts->count() + $chequesDue->count();
 
             $view->with([
-                'notifications' => ['lowStock' => $lowStockProducts, 'cheques' => $chequesDue],
-                'hasNotification' => $totalCount > 0,
+                'notifications'     => ['lowStock' => $lowStockProducts, 'cheques' => $chequesDue],
+                'hasNotification'   => $totalCount > 0,
                 'notificationCount' => $totalCount
             ]);
         });

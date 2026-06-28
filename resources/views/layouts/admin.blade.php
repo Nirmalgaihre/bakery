@@ -84,11 +84,11 @@
             </div>
         </div>
 
-        <nav class="flex-1 overflow-y-auto py-3 space-y-1 px-3"
-            @click="if ($event.target.closest('a')) mobileSidebarOpen = false" x-data="{ 
+        <nav class="flex-1 overflow-y-auto py-3 space-y-4 px-3"
+            @click="if ($event.target.closest('a')) mobileSidebarOpen = false" x-data="{
         openDashboard: {{ request()->is('admin/dashboard*') || request()->routeIs('admin.dashboard') ? 'true' : 'false' }},
         openCategories: {{ request()->routeIs('admin.categories.*') ? 'true' : 'false' }},
-        openCustomers: {{ request()->routeIs('admin.customers.*') ? 'true' : 'false' }}, 
+        openCustomers: {{ request()->routeIs('admin.customers.*') ? 'true' : 'false' }},
         openProducts: {{ request()->routeIs('admin.products.*') ? 'true' : 'false' }},
         openInventory: {{ request()->is('admin/inventory*') ? 'true' : 'false' }},
         openBilling: {{ request()->is('admin/sales*') ? 'true' : 'false' }},
@@ -100,268 +100,308 @@
         openPurchases: {{ request()->is('admin/purchases*') ? 'true' : 'false' }}
     }">
 
-            <!-- Role-based: Main Operations (Admin & Accountant) -->
-            <div class="text-[10px] font-bold text-slate-500 px-3 mb-2 tracking-widest uppercase">Main Operations</div>
+            <!-- Dashboard Section -->
+            <div>
+                <div class="text-[10px] font-bold text-slate-500 px-3 mb-2 tracking-widest uppercase">Dashboard Section
+                </div>
 
-            <!-- Dashboards Dropdown (Admin & Accountant) -->
-            <div class="space-y-0.5">
-                <button @click="openDashboard = !openDashboard"
-                    class="w-full flex items-center justify-between px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->is('admin/dashboard*') || request()->routeIs('admin.dashboard') ? 'text-white bg-brandDarkLight/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }} outline-none">
-                    <span class="flex items-center">
-                        <i class="fa-solid fa-chart-pie mr-3 w-4 text-center text-sm text-slate-500"></i>Dashboards
-                    </span>
-                    <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-200"
-                        :class="openDashboard ? 'rotate-180 text-slate-300' : ''"></i>
-                </button>
-                <div x-show="openDashboard" x-cloak x-collapse
-                    class="pl-4 space-y-0.5 border-l border-slate-800 ml-5 mt-0.5">
-                    <a href="{{ route('admin.dashboard') }}"
-                        class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.dashboard') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
-                        <i class="fa-solid fa-cubes mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Inventory
-                        Dashboard
-                    </a>
-                    <a href="{{ route('admin.sales.dashboard') }}"
-                        class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.sales.dashboard') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
-                        <i class="fa-solid fa-chart-line mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Sales
-                        Dashboard
-                    </a>
-                    <a href="{{ route('admin.purchases.dashboard') }}"
-                        class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.purchases.dashboard') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
-                        <i
-                            class="fa-solid fa-basket-shopping mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Purchase
-                        Dashboard
-                    </a>
+                <div class="space-y-0.5">
+                    <button @click="openDashboard = !openDashboard"
+                        class="w-full flex items-center justify-between px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->is('admin/dashboard*') || request()->routeIs('admin.dashboard') ? 'text-white bg-brandDarkLight/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }} outline-none">
+                        <span class="flex items-center">
+                            <i class="fa-solid fa-chart-pie mr-3 w-4 text-center text-sm text-slate-500"></i>Dashboards
+                        </span>
+                        <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-200"
+                            :class="openDashboard ? 'rotate-180 text-slate-300' : ''"></i>
+                    </button>
+
+                    <div x-show="openDashboard" x-cloak x-collapse
+                        class="pl-4 space-y-0.5 border-l border-slate-800 ml-5 mt-0.5">
+                        <a href="{{ route('admin.dashboard') }}"
+                            class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.dashboard') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
+                            <i class="fa-solid fa-cubes mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Inventory
+                            Dashboard
+                        </a>
+                        <a href="{{ route('admin.sales.dashboard') }}"
+                            class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.sales.dashboard') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
+                            <i class="fa-solid fa-chart-line mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Sales
+                            Dashboard
+                        </a>
+                        <a href="{{ route('admin.purchases.dashboard') }}"
+                            class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.purchases.dashboard') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
+                            <i
+                                class="fa-solid fa-basket-shopping mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Purchase
+                            Dashboard
+                        </a>
+                    </div>
                 </div>
             </div>
 
-            <!-- Categories (Admin & Accountant) -->
-            <div class="space-y-0.5">
-                <button @click="openCategories = !openCategories"
-                    class="w-full flex items-center justify-between px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->routeIs('admin.categories.*') ? 'text-white bg-brandDarkLight/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }} outline-none">
-                    <span class="flex items-center">
-                        <i class="fa-solid fa-tags mr-3 w-4 text-center text-sm text-slate-500"></i>Categories
-                    </span>
-                    <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-200"
-                        :class="openCategories ? 'rotate-180 text-slate-300' : ''"></i>
-                </button>
-                <div x-show="openCategories" x-cloak x-collapse
-                    class="pl-4 space-y-0.5 border-l border-slate-800 ml-5 mt-0.5">
-                    <a href="{{ route('admin.categories.index') }}"
-                        class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.categories.index') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
-                        <i class="fa-solid fa-list-check mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Manage
-                        Categories
-                    </a>
+            <!-- Master Data Section -->
+            <div>
+                <div class="text-[10px] font-bold text-slate-500 px-3 mb-2 tracking-widest uppercase">Master Data</div>
+
+                <div class="space-y-2">
+                    <!-- Categories -->
+                    <div class="space-y-0.5">
+                        <button @click="openCategories = !openCategories"
+                            class="w-full flex items-center justify-between px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->routeIs('admin.categories.*') ? 'text-white bg-brandDarkLight/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }} outline-none">
+                            <span class="flex items-center">
+                                <i class="fa-solid fa-tags mr-3 w-4 text-center text-sm text-slate-500"></i>Categories
+                            </span>
+                            <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-200"
+                                :class="openCategories ? 'rotate-180 text-slate-300' : ''"></i>
+                        </button>
+
+                        <div x-show="openCategories" x-cloak x-collapse
+                            class="pl-4 space-y-0.5 border-l border-slate-800 ml-5 mt-0.5">
+                            <a href="{{ route('admin.categories.index') }}"
+                                class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.categories.index') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
+                                <i
+                                    class="fa-solid fa-list-check mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Manage
+                                Categories
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Products -->
+                    <div class="space-y-0.5">
+                        <button @click="openProducts = !openProducts"
+                            class="w-full flex items-center justify-between px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->routeIs('admin.products.*') ? 'text-white bg-brandDarkLight/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }} outline-none">
+                            <span class="flex items-center">
+                                <i
+                                    class="fa-solid fa-boxes-stacked mr-3 w-4 text-center text-sm text-slate-500"></i>Products
+                            </span>
+                            <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-200"
+                                :class="openProducts ? 'rotate-180 text-slate-300' : ''"></i>
+                        </button>
+
+                        <div x-show="openProducts" x-cloak x-collapse
+                            class="pl-4 space-y-0.5 border-l border-slate-800 ml-5 mt-0.5">
+                            <a href="{{ route('admin.products.create') }}"
+                                class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.products.create') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
+                                <i class="fa-solid fa-plus mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Add
+                                Product
+                            </a>
+                            <a href="{{ route('admin.products.index') }}"
+                                class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.products.index') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
+                                <i class="fa-solid fa-eye mr-2 text-[11px] text-slate-500 w-3 text-center"></i>View
+                                Products
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Customers -->
+                    <div class="space-y-0.5">
+                        <button @click="openCustomers = !openCustomers"
+                            class="w-full flex items-center justify-between px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->routeIs('admin.customers.*') ? 'text-white bg-brandDarkLight/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }} outline-none">
+                            <span class="flex items-center">
+                                <i
+                                    class="fa-solid fa-address-book mr-3 w-4 text-center text-sm text-slate-500"></i>Customers
+                            </span>
+                            <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-200"
+                                :class="openCustomers ? 'rotate-180 text-slate-300' : ''"></i>
+                        </button>
+
+                        <div x-show="openCustomers" x-cloak x-collapse
+                            class="pl-4 space-y-0.5 border-l border-slate-800 ml-5 mt-0.5">
+                            <a href="{{ route('admin.customers.create') }}"
+                                class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.customers.create') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
+                                <i class="fa-solid fa-user-plus mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Add
+                                Customer
+                            </a>
+                            <a href="{{ route('admin.customers.index') }}"
+                                class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.customers.index') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
+                                <i class="fa-solid fa-book mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Customer
+                                Ledger
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Products (Admin & Accountant) -->
-            <div class="space-y-0.5">
-                <button @click="openProducts = !openProducts"
-                    class="w-full flex items-center justify-between px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->routeIs('admin.products.*') ? 'text-white bg-brandDarkLight/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }} outline-none">
-                    <span class="flex items-center">
-                        <i class="fa-solid fa-boxes-stacked mr-3 w-4 text-center text-sm text-slate-500"></i>Products
-                    </span>
-                    <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-200"
-                        :class="openProducts ? 'rotate-180 text-slate-300' : ''"></i>
-                </button>
-                <div x-show="openProducts" x-cloak x-collapse
-                    class="pl-4 space-y-0.5 border-l border-slate-800 ml-5 mt-0.5">
-                    <a href="{{ route('admin.products.create') }}"
-                        class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.products.create') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
-                        <i class="fa-solid fa-plus mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Add Product
-                    </a>
-                    <a href="{{ route('admin.products.index') }}"
-                        class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.products.index') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
-                        <i class="fa-solid fa-eye mr-2 text-[11px] text-slate-500 w-3 text-center"></i>View Products
-                    </a>
+            <!-- Inventory & Purchasing Section -->
+            <div>
+                <div class="text-[10px] font-bold text-slate-500 px-3 mb-2 tracking-widest uppercase">Inventory &
+                    Purchasing</div>
+
+                <div class="space-y-2">
+                    <!-- Inventory -->
+                    <div class="space-y-0.5">
+                        <button @click="openInventory = !openInventory"
+                            class="w-full flex items-center justify-between px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->is('admin/inventory*') ? 'text-white bg-brandDarkLight/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }} outline-none">
+                            <span class="flex items-center">
+                                <i
+                                    class="fa-solid fa-warehouse mr-3 w-4 text-center text-sm text-slate-500"></i>Inventory
+                            </span>
+                            <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-200"
+                                :class="openInventory ? 'rotate-180 text-slate-300' : ''"></i>
+                        </button>
+
+                        <div x-show="openInventory" x-cloak x-collapse
+                            class="pl-4 space-y-0.5 border-l border-slate-800 ml-5 mt-0.5">
+                            <a href="{{ route('admin.inventory.add') }}"
+                                class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->is('admin/inventory/add*') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
+                                <i class="fa-solid fa-box mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Add Stock
+                            </a>
+                            <a href="{{ route('admin.inventory.low_stock_manager') }}"
+                                class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->is('admin/inventory/low-stock*') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
+                                <i
+                                    class="fa-solid fa-triangle-exclamation mr-2 text-[11px] text-orange-500 w-3 text-center"></i>Low
+                                Stock
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Purchases -->
+                    <div class="space-y-0.5">
+                        <button @click="openPurchases = !openPurchases"
+                            class="w-full flex items-center justify-between px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->is('admin/purchases*') ? 'text-white bg-brandDarkLight/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }} outline-none">
+                            <span class="flex items-center">
+                                <i
+                                    class="fa-solid fa-cart-flatbed mr-3 w-4 text-center text-sm text-slate-500"></i>Purchases
+                            </span>
+                            <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-200"
+                                :class="openPurchases ? 'rotate-180 text-slate-300' : ''"></i>
+                        </button>
+
+                        <div x-show="openPurchases" x-cloak x-collapse
+                            class="pl-4 space-y-0.5 border-l border-slate-800 ml-5 mt-0.5">
+                            <a href="{{ route('admin.purchases.create') }}"
+                                class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.purchases.create') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
+                                <i class="fa-solid fa-plus mr-2 text-[11px] text-slate-500 w-3 text-center"></i>New
+                                Purchase
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Customers (Admin & Accountant) -->
-            <div class="space-y-0.5">
-                <button @click="openCustomers = !openCustomers"
-                    class="w-full flex items-center justify-between px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->routeIs('admin.customers.*') ? 'text-white bg-brandDarkLight/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }} outline-none">
-                    <span class="flex items-center">
-                        <i class="fa-solid fa-address-book mr-3 w-4 text-center text-sm text-slate-500"></i>Customers
-                    </span>
-                    <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-200"
-                        :class="openCustomers ? 'rotate-180 text-slate-300' : ''"></i>
-                </button>
-                <div x-show="openCustomers" x-cloak x-collapse
-                    class="pl-4 space-y-0.5 border-l border-slate-800 ml-5 mt-0.5">
-                    <a href="{{ route('admin.customers.create') }}"
-                        class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.customers.create') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
-                        <i class="fa-solid fa-user-plus mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Add
-                        Customer
-                    </a>
-                    <a href="{{ route('admin.customers.index') }}"
-                        class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.customers.index') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
-                        <i class="fa-solid fa-book mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Customer Ledger
-                    </a>
+            <!-- Sales & Finance Section -->
+            <div>
+                <div class="text-[10px] font-bold text-slate-500 px-3 mb-2 tracking-widest uppercase">Sales & Finance
+                </div>
+
+                <div class="space-y-2">
+                    <!-- Sales -->
+                    <div class="space-y-0.5"
+                        x-data="{ openBilling: {{ request()->is('admin/sales*') ? 'true' : 'false' }} }">
+                        <button @click="openBilling = !openBilling"
+                            class="w-full flex items-center justify-between px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->is('admin/sales*') ? 'text-white bg-brandDarkLight/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }} outline-none">
+                            <span class="flex items-center">
+                                <i class="fa-solid fa-receipt mr-3 w-4 text-center text-sm text-slate-500"></i>Sales
+                            </span>
+                            <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-200"
+                                :class="openBilling ? 'rotate-180 text-slate-300' : ''"></i>
+                        </button>
+
+                        <div x-show="openBilling" x-cloak x-collapse
+                            class="pl-4 space-y-0.5 border-l border-slate-800 ml-5 mt-0.5">
+                            <a href="{{ route('admin.sales.create') }}"
+                                class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.sales.create') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
+                                <i
+                                    class="fa-solid fa-cash-register mr-2 text-[11px] text-slate-500 w-3 text-center"></i>New
+                                Sale (POS)
+                            </a>
+                            <a href="{{ route('admin.sales.index') }}"
+                                class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.sales.index') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
+                                <i class="fa-solid fa-list mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Sales
+                                Register
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Invoices -->
+                    <div class="space-y-0.5">
+                        <button @click="openInvoices = !openInvoices"
+                            class="w-full flex items-center justify-between px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->is('admin/invoices*') ? 'text-white bg-brandDarkLight/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }} outline-none">
+                            <span class="flex items-center">
+                                <i
+                                    class="fa-solid fa-file-invoice mr-3 w-4 text-center text-sm text-slate-500"></i>Invoices
+                            </span>
+                            <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-200"
+                                :class="openInvoices ? 'rotate-180 text-slate-300' : ''"></i>
+                        </button>
+
+                        <div x-show="openInvoices" x-cloak x-collapse
+                            class="pl-4 space-y-0.5 border-l border-slate-800 ml-5 mt-0.5">
+                            <a href="{{ route('admin.invoices.index') }}"
+                                class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.invoices.index') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
+                                <i class="fa-solid fa-list mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Invoice
+                                Ledger
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Returns -->
+                    <div class="space-y-0.5">
+                        <button @click="openWastage = !openWastage" type="button"
+                            class="w-full flex items-center justify-between px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->is('admin/returns-wastage*') ? 'text-white bg-brandDarkLight/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }} outline-none">
+                            <span class="flex items-center">
+                                <i
+                                    class="fa-solid fa-dumpster-fire mr-3 w-4 text-center text-sm {{ request()->is('admin/returns-wastage*') ? 'text-white' : 'text-slate-500' }}"></i>Returns
+                            </span>
+                            <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-200"
+                                :class="openWastage ? 'rotate-180 text-slate-300' : ''"></i>
+                        </button>
+
+                        <div x-show="openWastage" x-cloak x-collapse
+                            class="pl-4 space-y-0.5 border-l border-slate-800 ml-5 mt-0.5">
+                            <a href="{{ route('admin.wastage.create') }}"
+                                class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.wastage.create') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
+                                <i class="fa-solid fa-reply mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Add
+                                Return
+                            </a>
+                            <a href="{{ route('admin.wastage.index') }}"
+                                class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.wastage.index') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
+                                <i
+                                    class="fa-solid fa-folder-open mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Return
+                                Ledger
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Cheques -->
+                    <div class="space-y-0.5">
+                        <button @click="openChequesMenu = !openChequesMenu"
+                            class="w-full flex items-center justify-between px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->is('admin/cheques*') ? 'text-white bg-brandDarkLight/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }} outline-none">
+                            <span class="flex items-center">
+                                <i
+                                    class="fa-solid fa-money-check-dollar mr-3 w-4 text-center text-sm text-slate-500"></i>Cheques
+                            </span>
+                            <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-200"
+                                :class="openChequesMenu ? 'rotate-180 text-slate-300' : ''"></i>
+                        </button>
+
+                        <div x-show="openChequesMenu" x-cloak x-collapse
+                            class="pl-4 space-y-0.5 border-l border-slate-800 ml-5 mt-0.5">
+                            <a href="{{ route('admin.cheques.create') }}"
+                                class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.cheques.create') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
+                                <i
+                                    class="fa-solid fa-pen-to-square mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Record
+                                Cheque
+                            </a>
+                            <a href="{{ route('admin.cheques.index') }}"
+                                class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.cheques.index') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
+                                <i class="fa-solid fa-vault mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Cheque
+                                Ledger
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Inventory (Admin & Accountant) -->
-            <div class="space-y-0.5">
-                <button @click="openInventory = !openInventory"
-                    class="w-full flex items-center justify-between px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->is('admin/inventory*') ? 'text-white bg-brandDarkLight/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }} outline-none">
-                    <span class="flex items-center">
-                        <i class="fa-solid fa-warehouse mr-3 w-4 text-center text-sm text-slate-500"></i>Inventory
-                    </span>
-                    <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-200"
-                        :class="openInventory ? 'rotate-180 text-slate-300' : ''"></i>
-                </button>
-
-                <div x-show="openInventory" x-cloak x-collapse
-                    class="pl-4 space-y-0.5 border-l border-slate-800 ml-5 mt-0.5">
-
-                    <a href="{{ route('admin.inventory.add') }}"
-                        class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all 
-                        {{ request()->is('admin/inventory/add*') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
-                        <i class="fa-solid fa-box mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Add Stock
-                    </a>
-
-                    <a href="{{ route('admin.inventory.low_stock_manager') }}"
-                        class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->is('admin/inventory/low-stock*') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
-                        <i
-                            class="fa-solid fa-triangle-exclamation mr-2 text-[11px] text-orange-500 w-3 text-center"></i>Low
-                        Stock
-                    </a>
-                </div>
-            </div>
-
-            <!-- Purchases (Admin & Accountant) -->
-            <div class="space-y-0.5">
-                <button @click="openPurchases = !openPurchases"
-                    class="w-full flex items-center justify-between px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->is('admin/purchases*') ? 'text-white bg-brandDarkLight/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }} outline-none">
-                    <span class="flex items-center">
-                        <i class="fa-solid fa-cart-flatbed mr-3 w-4 text-center text-sm text-slate-500"></i>Purchases
-                    </span>
-                    <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-200"
-                        :class="openPurchases ? 'rotate-180 text-slate-300' : ''"></i>
-                </button>
-
-                <div x-show="openPurchases" x-cloak x-collapse
-                    class="pl-4 space-y-0.5 border-l border-slate-800 ml-5 mt-0.5">
-
-                    <a href="{{ route('admin.purchases.create') }}"
-                        class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.purchases.create') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
-                        <i class="fa-solid fa-plus mr-2 text-[11px] text-slate-500 w-3 text-center"></i>New Purchase
-                    </a>
-                </div>
-            </div>
-
-            <!-- Invoices (Admin & Accountant) -->
-            <div class="space-y-0.5">
-                <button @click="openInvoices = !openInvoices"
-                    class="w-full flex items-center justify-between px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->is('admin/invoices*') ? 'text-white bg-brandDarkLight/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }} outline-none">
-                    <span class="flex items-center">
-                        <i class="fa-solid fa-file-invoice mr-3 w-4 text-center text-sm text-slate-500"></i>Invoices
-                    </span>
-                    <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-200"
-                        :class="openInvoices ? 'rotate-180 text-slate-300' : ''"></i>
-                </button>
-
-                <div x-show="openInvoices" x-cloak x-collapse
-                    class="pl-4 space-y-0.5 border-l border-slate-800 ml-5 mt-0.5">
-
-                    
-
-                    <a href="{{ route('admin.invoices.index') }}"
-                        class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.invoices.index') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
-                        <i class="fa-solid fa-list mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Invoice Ledger
-                    </a>
-                </div>
-            </div>
-
-            <!-- Sales (Admin & Accountant) -->
-            <div class="space-y-0.5" x-data="{ openBilling: {{ request()->is('admin/sales*') ? 'true' : 'false' }} }">
-                <button @click="openBilling = !openBilling"
-                    class="w-full flex items-center justify-between px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->is('admin/sales*') ? 'text-white bg-brandDarkLight/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }} outline-none">
-                    <span class="flex items-center">
-                        <i class="fa-solid fa-receipt mr-3 w-4 text-center text-sm text-slate-500"></i>Sales
-                    </span>
-                    <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-200"
-                        :class="openBilling ? 'rotate-180 text-slate-300' : ''"></i>
-                </button>
-
-                <div x-show="openBilling" x-cloak x-collapse
-                    class="pl-4 space-y-0.5 border-l border-slate-800 ml-5 mt-0.5">
-
-                    <a href="{{ route('admin.sales.create') }}"
-                        class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.sales.create') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
-                        <i class="fa-solid fa-cash-register mr-2 text-[11px] text-slate-500 w-3 text-center"></i>New
-                        Sale (POS)
-                    </a>
-
-                    <a href="{{ route('admin.sales.index') }}"
-                        class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.sales.index') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
-                        <i class="fa-solid fa-list mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Sales Register
-                    </a>
-                </div>
-            </div>
-
-            <!-- Returns & Wastage (Admin & Accountant) -->
-            <div class="space-y-0.5">
-                <button @click="openWastage = !openWastage" type="button"
-                    class="w-full flex items-center justify-between px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->is('admin/returns-wastage*') ? 'text-white bg-brandDarkLight/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }} outline-none">
-                    <span class="flex items-center">
-                        <i
-                            class="fa-solid fa-dumpster-fire mr-3 w-4 text-center text-sm {{ request()->is('admin/returns-wastage*') ? 'text-white' : 'text-slate-500' }}"></i>Returns
-                    </span>
-                    <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-200"
-                        :class="openWastage ? 'rotate-180 text-slate-300' : ''"></i>
-                </button>
-                <div x-show="openWastage" x-cloak x-collapse
-                    class="pl-4 space-y-0.5 border-l border-slate-800 ml-5 mt-0.5">
-                    <a href="{{ route('admin.wastage.create') }}"
-                        class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.wastage.create') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
-                        <i class="fa-solid fa-reply mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Add Return
-                    </a>
-                    <a href="{{ route('admin.wastage.index') }}"
-                        class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.wastage.index') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
-                        <i class="fa-solid fa-folder-open mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Return
-                        Ledger
-                    </a>
-                </div>
-            </div>
-
-            <!-- Cheques (Admin & Accountant) -->
-            <div class="space-y-0.5">
-                <button @click="openChequesMenu = !openChequesMenu"
-                    class="w-full flex items-center justify-between px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->is('admin/cheques*') ? 'text-white bg-brandDarkLight/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }} outline-none">
-                    <span class="flex items-center">
-                        <i
-                            class="fa-solid fa-money-check-dollar mr-3 w-4 text-center text-sm text-slate-500"></i>Cheques
-                    </span>
-                    <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-200"
-                        :class="openChequesMenu ? 'rotate-180 text-slate-300' : ''"></i>
-                </button>
-                <div x-show="openChequesMenu" x-cloak x-collapse
-                    class="pl-4 space-y-0.5 border-l border-slate-800 ml-5 mt-0.5">
-                    <a href="{{ route('admin.cheques.create') }}"
-                        class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.cheques.create') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
-                        <i class="fa-solid fa-pen-to-square mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Record
-                        Cheque
-                    </a>
-                    <a href="{{ route('admin.cheques.index') }}"
-                        class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.cheques.index') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
-                        <i class="fa-solid fa-vault mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Cheque Ledger
-                    </a>
-                </div>
-            </div>
-            <!-- Role-based: Admin Only Section -->
+            <!-- Admin Only -->
             @if(auth()->check() && auth()->user()->role === 'admin')
             <div class="pt-4 mt-2 border-t border-slate-800/60"
                 x-data="{ openBackupMenu: {{ request()->is('admin/backups*') ? 'true' : 'false' }}, openAdminSection: {{ request()->is('admin/staff*') || request()->is('admin/roles*') || request()->is('admin/logs*') ? 'true' : 'false' }} }">
-
                 <div
                     class="flex items-center gap-2 px-3 mb-2 text-[10px] font-bold text-amber-500 tracking-widest uppercase">
                     <i class="fa-solid fa-bolt text-[9px]"></i>
                     Admin Only
                 </div>
 
-                <!-- Backups (Admin Only) -->
+                <!-- Backups -->
                 <div class="space-y-0.5">
                     <button @click="openBackupMenu = !openBackupMenu"
                         class="w-full flex items-center justify-between px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->is('admin/backups*') ? 'text-white bg-brandDarkLight/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }} outline-none">
@@ -389,7 +429,9 @@
                                 </button>
                             </div>
                         </form>
+
                         <div class="h-px bg-slate-800/60 mx-2"></div>
+
                         <a href="{{ route('admin.backups.index') }}"
                             class="flex items-center px-2 py-1 text-[12px] transition-all {{ request()->routeIs('admin.backups.index') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
                             <i class="fa-solid fa-cloud-arrow-down mr-2 text-[10px] text-slate-500 w-3 text-center"></i>
@@ -398,7 +440,7 @@
                     </div>
                 </div>
 
-                <!-- User Controls (Admin Only) -->
+                <!-- User Controls -->
                 <div class="space-y-0.5">
                     <button @click="openAdminSection = !openAdminSection"
                         class="w-full flex items-center justify-between px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->is('admin/staff*') || request()->is('admin/roles*') || request()->is('admin/logs*') ? 'text-white bg-brandDarkLight/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }} outline-none">
@@ -412,19 +454,16 @@
 
                     <div x-show="openAdminSection" x-cloak x-collapse
                         class="pl-4 space-y-0.5 border-l border-slate-800 ml-5 mt-0.5">
-
                         <a href="{{ route('admin.staff.index') }}"
                             class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.staff.*') ? 'text-blue-400 font-semibold bg-slate-800/20' : 'text-slate-400 hover:text-slate-200' }}">
                             <i class="fa-solid fa-users-gear mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Staff
                             Directory
                         </a>
-
                         <a href="{{ route('admin.roles.index') }}"
                             class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.roles.*') ? 'text-blue-400 font-semibold bg-slate-800/20' : 'text-slate-400 hover:text-slate-200' }}">
                             <i class="fa-solid fa-key mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Roles &
                             Permissions
                         </a>
-
                         <a href="{{ route('admin.logs.index') }}"
                             class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.logs.*') ? 'text-blue-400 font-semibold bg-slate-800/20' : 'text-slate-400 hover:text-slate-200' }}">
                             <i
@@ -713,9 +752,13 @@
             </div>
         </header>
 
-        <main class="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6">
-            @yield('content')
-        </main>
+        <main class="flex-1 overflow-y-auto bg-slate-50 p-3 sm:p-4 md:p-6">
+    <div class="mx-auto max-w-7xl space-y-6">
+        
+        @yield('content')
+        
+    </div>
+</main>
     </div>
 
     <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>

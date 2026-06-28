@@ -10,6 +10,11 @@ use App\Models\Invoice;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
+// यी ३ वटा मात्र PHPMailer को लागि राख्नुहोस्
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\SMTP;
+use PHPMailer\PHPMailer\Exception;
+
 class SalesController extends Controller
 {
     /**
@@ -142,26 +147,18 @@ class SalesController extends Controller
             'items.*.quantity_gm' => 'required|numeric|min:0|max:999.99',
         ]);
     } catch (\Illuminate\Validation\ValidationException $e) {
-        return response()->json([
-            'success' => false,
-            'message' => implode(' | ', $e->validator->errors()->all()),
-        ], 422);
+        return response()->json(['success' => false, 'message' => implode(' | ', $e->validator->errors()->all())], 422);
     }
 
-    // Check at least one item has a real quantity
     $hasValidQty = collect($validated['items'])->contains(function ($item) {
         return ((float)$item['quantity_kg'] + (float)$item['quantity_gm'] / 1000) > 0;
     });
 
     if (! $hasValidQty) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Please enter a valid quantity for at least one item.',
-        ], 422);
+        return response()->json(['success' => false, 'message' => 'Please enter a valid quantity for at least one item.'], 422);
     }
 
     try {
-        // Fetch customer records once to avoid repeated queries in transaction loop
         $customer = Customer::findOrFail($validated['customer_id']);
 
         $invoice = DB::transaction(function () use ($validated, $customer) {
@@ -169,80 +166,51 @@ class SalesController extends Controller
             $itemsData = [];
 
             foreach ($validated['items'] as $itemInput) {
-                $kg          = (float)$itemInput['quantity_kg'];
-                $gm          = (float)$itemInput['quantity_gm'];
-                $totalWeight = $kg + ($gm / 1000);
+                $totalWeight = (float)$itemInput['quantity_kg'] + ((float)$itemInput['quantity_gm'] / 1000);
+                if ($totalWeight <= 0) continue;
 
-                if ($totalWeight <= 0) {
-                    continue; // skip zero-qty rows
-                }
-
-                // Lock the row so concurrent checkouts don't oversell
                 $product = Product::lockForUpdate()->findOrFail($itemInput['id']);
-
                 if ((float)$product->initial_stock < $totalWeight) {
-                    throw new \Exception(
-                        "Insufficient stock for \"{$product->name}\". " .
-                        "Available: {$product->initial_stock} {$product->inventory_unit}, " .
-                        "Requested: {$totalWeight} {$product->inventory_unit}."
-                    );
+                    throw new \Exception("Insufficient stock for \"{$product->name}\".");
                 }
 
-                $rate         = (float)$itemInput['rate_per_kg'];
-                $itemSubtotal = $rate * $totalWeight;
+                $itemSubtotal = (float)$itemInput['rate_per_kg'] * $totalWeight;
                 $subtotal    += $itemSubtotal;
 
                 $itemsData[] = [
                     'product'      => $product,
                     'total_weight' => $totalWeight,
-                    'rate'         => $rate,
+                    'rate'         => (float)$itemInput['rate_per_kg'],
                     'total'        => $itemSubtotal,
                     'unit'         => $product->inventory_unit ?? 'KG',
                 ];
             }
 
-            if (empty($itemsData)) {
-                throw new \Exception('No items with a valid quantity were found in the cart.');
-            }
-
-            // Financial calculations
             $discount   = (float)$validated['discount'];
             $taxable    = max(0, $subtotal - $discount);
             $vat        = (bool)$validated['include_vat'] ? round($taxable * 0.13, 2) : 0.00;
             $grandTotal = round($taxable + $vat, 2);
+            $paidAmount = round($validated['payment_method'] === 'Credit Sale' ? min((float)$validated['paid_amount'], $grandTotal) : $grandTotal, 2);
 
-            $isCreditSale = ($validated['payment_method'] === 'Credit Sale');
-            $paidAmount   = $isCreditSale
-                ? min((float)$validated['paid_amount'], $grandTotal)
-                : $grandTotal;
-            $paidAmount   = round($paidAmount, 2);
-
-            $status    = ($paidAmount >= $grandTotal) ? 'Paid' : 'Credit';
-            $invoiceNo = 'INV-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -6));
-            $now       = now();
-
-            // Persist invoice using the explicitly matched model fields
-            // NOTE: Change "Invoice::create" to "Sale::create" if your model is configured as Sale
             $invoice = Invoice::create([
-                'invoice_no'     => $invoiceNo,
-                'invoice_number' => $invoiceNo,
-                'invoice_date'   => $now->toDateString(),
-                'nepali_date'    => $validated['transaction_date'] ?? '',
-                'customer_id'    => $customer->id,
-                'patient_name'   => $customer->name ?? 'Walk-in Customer',
-                'patient_address'=> $customer->address ?? 'N/A',
-                'subtotal'       => round($subtotal, 2),
-                'discount'       => $discount,
-                'taxable_amount' => $taxable,
-                'vat_amount'     => $vat,
-                'grand_total'    => $grandTotal,
-                'paid_amount'    => $paidAmount,
-                'payment_method' => $validated['payment_method'],
-                'status'         => $status,
-                'remarks'        => $validated['remarks'] ?? null,
+                'invoice_no'      => 'INV-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -6)),
+                'invoice_number'  => 'INV-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -6)),
+                'invoice_date'    => now()->toDateString(),
+                'nepali_date'     => $validated['transaction_date'] ?? '',
+                'customer_id'     => $customer->id,
+                'patient_name'    => $customer->name ?? 'Walk-in Customer',
+                'patient_address' => $customer->address ?? 'N/A',
+                'subtotal'        => round($subtotal, 2),
+                'discount'        => $discount,
+                'taxable_amount'  => $taxable,
+                'vat_amount'      => $vat,
+                'grand_total'     => $grandTotal,
+                'paid_amount'     => $paidAmount,
+                'payment_method'  => $validated['payment_method'],
+                'status'          => ($paidAmount >= $grandTotal) ? 'Paid' : 'Credit',
+                'remarks'         => $validated['remarks'] ?? null,
             ]);
 
-            // Persist invoice items and decrement stock
             foreach ($itemsData as $entry) {
                 DB::table('invoice_items')->insert([
                     'invoice_id'   => $invoice->id,
@@ -252,18 +220,18 @@ class SalesController extends Controller
                     'unit'         => $entry['unit'],
                     'price'        => $entry['rate'],
                     'total'        => $entry['total'],
-                    'created_at'   => $now,
-                    'updated_at'   => $now,
+                    'created_at'   => now(),
+                    'updated_at'   => now(),
                 ]);
 
-                $entry['product']->decrement('initial_stock', $entry['total_weight']);
+                $newStock = $entry['product']->initial_stock - $entry['total_weight'];
+                $entry['product']->update(['initial_stock' => $newStock]);
+
+            
             }
 
-            // Update customer outstanding due if credit occurs
-            $due = $grandTotal - $paidAmount;
-            if ($due > 0) {
-                Customer::where('id', $customer->id)
-                    ->increment('previous_due', $due);
+            if (($grandTotal - $paidAmount) > 0) {
+                $customer->increment('previous_due', $grandTotal - $paidAmount);
             }
 
             return $invoice;
@@ -275,11 +243,13 @@ class SalesController extends Controller
             'redirect' => route('admin.sales.index'),
         ]);
 
-    } catch (\Exception $e) {
-        Log::error('POS Checkout Error', [
-            'message' => $e->getMessage(),
-            'file'    => $e->getFile(),
-            'line'    => $e->getLine(),
+    } catch (\Throwable $e) {
+        // \Throwable catches BOTH \Exception and \Error (TypeError, etc.)
+        // so the controller always returns valid JSON instead of an HTML error page.
+        Log::error('POS Error: ' . $e->getMessage(), [
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => $e->getTraceAsString(),
         ]);
 
         return response()->json([
@@ -302,8 +272,7 @@ public function updatePayment(Request $request, $id)
     try {
         $invoice = Invoice::findOrFail($id);
         $receivedAmount = round((float)$request->received_amount, 2);
-        
-        // कति उधारो बाँकी छ हिसाब गर्ने
+
         $dueAmount = $invoice->grand_total - $invoice->paid_amount;
 
         if ($receivedAmount > $dueAmount) {
@@ -311,9 +280,8 @@ public function updatePayment(Request $request, $id)
         }
 
         DB::transaction(function () use ($invoice, $receivedAmount, $dueAmount) {
-            // १. बिलको paid_amount र status अपडेट गर्ने
             $invoice->paid_amount += $receivedAmount;
-            
+
             if ($invoice->paid_amount >= $invoice->grand_total) {
                 $invoice->status = 'Paid';
             } else {
@@ -321,7 +289,6 @@ public function updatePayment(Request $request, $id)
             }
             $invoice->save();
 
-            // २. ग्राहकको कुल बाँकी उधारो (previous_due) घटाउने
             if ($invoice->customer_id) {
                 Customer::where('id', $invoice->customer_id)
                     ->decrement('previous_due', $receivedAmount);
@@ -330,7 +297,8 @@ public function updatePayment(Request $request, $id)
 
         return redirect()->back()->with('success', 'भुक्तानी सफलतापूर्वक अपडेट गरियो।');
 
-    } catch (\Exception $e) {
+    } catch (\Throwable $e) {
+        Log::error('Update Payment Error: ' . $e->getMessage());
         return redirect()->back()->with('error', 'त्रुटि: ' . $e->getMessage());
     }
 }
@@ -373,5 +341,29 @@ public function itemAnalysis(Request $request)
     return view('admin.sales.item-analysis', compact(
         'customers', 'products', 'productHistory', 'totalQty', 'grandTotal', 'selectedProduct'
     ));
+}
+private function sendLowStockEmail($productName, $currentStock)
+{
+    $mail = new PHPMailer(true);
+    try {
+        $mail->isSMTP();
+        $mail->Host       = env('MAIL_HOST');
+        $mail->SMTPAuth   = true;
+        $mail->Username   = env('MAIL_USERNAME');
+        $mail->Password   = env('MAIL_PASSWORD');
+        $mail->SMTPSecure = env('MAIL_ENCRYPTION');
+        $mail->Port       = env('MAIL_PORT');
+
+        $mail->setFrom(env('MAIL_FROM_ADDRESS'), env('MAIL_FROM_NAME'));
+        $mail->addAddress(env('MAIL_FROM_ADDRESS')); 
+
+        $mail->isHTML(true);
+        $mail->Subject = 'Low Stock Alert: ' . $productName;
+        $mail->Body    = "Inventory Alert: Product <b>{$productName}</b> is running low. Remaining: <b>{$currentStock}</b>.";
+        
+        $mail->send();
+    } catch (\Exception $e) {
+        Log::error("Email Error: " . $mail->ErrorInfo);
+    }
 }
 }
