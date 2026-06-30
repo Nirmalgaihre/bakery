@@ -38,17 +38,17 @@ class BackupController extends Controller
     public function store(Request $request)
     {
         $scope = $request->input('backup_scope', 'all');
-        $prefix = $request->input('prefix', 'manual');
+        $prefix = $request->input('prefix') ?? 'manual';
 
         try {
             $result = $this->backupService->run($scope, $prefix);
 
             Backup::create([
                 'filename' => $result['filename'],
-                'scope' => $scope === 'all' ? 'Full Backup' : ($scope === 'database' ? 'DB Only' : 'Files Only'),
+                'scope' => $scope === 'all' ? 'Full Backup' : ($scope === 'db_only' ? 'DB Only' : 'Files Only'),
                 'size' => $result['size'],
                 'path' => $result['path'],
-                'created_by' => 'Nirmal Gaihre' // निर्मल गैह्रे
+                'created_by' => auth()->user()->name ?? 'System' // निर्मल गैह्रे
             ]);
 
             return redirect()->route('admin.backups.index')->with('success', 'System backup archive created successfully!');
@@ -58,27 +58,28 @@ class BackupController extends Controller
     }
 
     public function download($filename)
-    {
-        $filePath = storage_path('app/backups/' . $filename);
-        if (file_exists($filePath)) {
-            return response()->download($filePath);
-        }
-        return redirect()->back()->with('error', 'Requested archive file not found on local storage node.');
+{
+    $filename = basename($filename); // strip any path traversal
+    $filePath = storage_path('app/backups/' . $filename);
+    if (file_exists($filePath)) {
+        return response()->download($filePath);
+    }
+    return redirect()->back()->with('error', 'Requested archive file not found on local storage node.');
+}
+
+public function destroy($filename)
+{
+    $filename = basename($filename);
+    $backup = Backup::where('filename', $filename)->firstOrFail();
+    $filePath = storage_path('app/backups/' . $filename);
+
+    if (file_exists($filePath)) {
+        unlink($filePath);
     }
 
-    public function destroy($filename)
-    {
-        $backup = Backup::where('filename', $filename)->firstOrFail();
-        $filePath = storage_path('app/backups/' . $filename);
-
-        if (file_exists($filePath)) {
-            unlink($filePath);
-        }
-
-        $backup->delete();
-        return redirect()->route('admin.backups.index')->with('success', 'Archive package successfully dropped.');
-    }
-
+    $backup->delete();
+    return redirect()->route('admin.backups.index')->with('success', 'Archive package successfully dropped.');
+}
     private function formatBytes($bytes, $precision = 2)
     {
         $units = ['B', 'KB', 'MB', 'GB', 'TB'];

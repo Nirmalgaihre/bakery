@@ -45,10 +45,16 @@ Route::middleware(['web', 'auth', 'verified'])->prefix('admin')->name('admin.')-
     Route::middleware(['role:admin|accountant'])->group(function () {
         
         // Customers, Products, Categories
-        Route::resource('customers', CustomerController::class);
-        Route::resource('products', AdminProductController::class);
-        Route::resource('categories', SectorCategoryController::class);
+// 1. Define custom specific routes FIRST
+Route::get('products/export', [AdminProductController::class, 'export'])->name('products.export');
+Route::get('products/import', [AdminProductController::class, 'importForm'])->name('products.import.form');
+Route::post('products/import', [AdminProductController::class, 'import'])->name('products.import');
+Route::get('products/template', [AdminProductController::class, 'importTemplate'])->name('products.import.template');
 
+// 2. Define resource routes LAST
+        Route::resource('customers', CustomerController::class);
+Route::resource('products', AdminProductController::class);
+        Route::resource('categories', SectorCategoryController::class);
         // Inventory Management (सच्याइएको रुटहरू)
         Route::prefix('inventory')->name('inventory.')->group(function () {
     
@@ -130,7 +136,13 @@ Route::prefix('sales')->name('sales.')->group(function () {
             Route::post('/update/{purchase}', [PurchaseDashboardController::class, 'update'])->name('update');
             Route::delete('/destroy/{purchase}', [PurchaseDashboardController::class, 'destroy'])->name('destroy');
         });
-        
+        // In routes/web.php
+Route::prefix('release-notes')->name('release-notes.')->group(function () {
+    // Instead of pointing to a controller, return the view directly
+    Route::get('/', function () {
+        return view('admin.release-notes');
+    })->name('index');
+});
 
         // Returns & Wastage
         Route::get('returns-wastage', [WastageController::class, 'index'])->name('wastage.index');

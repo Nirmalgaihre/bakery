@@ -8,6 +8,13 @@ use Illuminate\Http\Request;
 
 class SectorCategoryController extends Controller 
 {
+    public function __construct()
+    {
+        // Only admins can create, store, edit, or update categories.
+        $this->middleware('can:create,App\Models\SectorCategory')->only(['store']);
+        $this->middleware('can:update,category')->only(['edit', 'update']);
+    }
+
     /**
      * Display a listing of the resource.
      */

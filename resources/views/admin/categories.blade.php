@@ -56,7 +56,9 @@
                             <td class="px-6 py-4 font-mono text-xs">{{ $category->id }}</td>
                             <td class="px-6 py-4 font-semibold text-slate-800">{{ $category->name }}</td>
                             <td class="px-6 py-4 text-right">
+                                @can('update', $category)
                                 <a href="{{ route('admin.categories.edit', $category->id) }}" class="text-blue-600 hover:text-blue-800 text-xs font-bold uppercase">Edit</a>
+                                @endcan
                             </td>
                         </tr>
                         @empty

@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\Customer;
 use App\Models\Invoice;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -226,8 +227,8 @@ class SalesController extends Controller
 
                 $newStock = $entry['product']->initial_stock - $entry['total_weight'];
                 $entry['product']->update(['initial_stock' => $newStock]);
-
-            
+                
+                $this->checkAndSendLowStockAlert($entry['product']);
             }
 
             if (($grandTotal - $paidAmount) > 0) {
@@ -342,28 +343,63 @@ public function itemAnalysis(Request $request)
         'customers', 'products', 'productHistory', 'totalQty', 'grandTotal', 'selectedProduct'
     ));
 }
-private function sendLowStockEmail($productName, $currentStock)
+
+/**
+ * Real-time Single Product Low Stock Monitor via PHPMailer.
+ */
+private function checkAndSendLowStockAlert($product)
 {
-    $mail = new PHPMailer(true);
-    try {
-        $mail->isSMTP();
-        $mail->Host       = env('MAIL_HOST');
-        $mail->SMTPAuth   = true;
-        $mail->Username   = env('MAIL_USERNAME');
-        $mail->Password   = env('MAIL_PASSWORD');
-        $mail->SMTPSecure = env('MAIL_ENCRYPTION');
-        $mail->Port       = env('MAIL_PORT');
+    // Refresh the product model to get the most up-to-date stock level
+    $product->refresh();
 
-        $mail->setFrom(env('MAIL_FROM_ADDRESS'), env('MAIL_FROM_NAME'));
-        $mail->addAddress(env('MAIL_FROM_ADDRESS')); 
-
-        $mail->isHTML(true);
-        $mail->Subject = 'Low Stock Alert: ' . $productName;
-        $mail->Body    = "Inventory Alert: Product <b>{$productName}</b> is running low. Remaining: <b>{$currentStock}</b>.";
-        
-        $mail->send();
-    } catch (\Exception $e) {
-        Log::error("Email Error: " . $mail->ErrorInfo);
+    if ($product->initial_stock <= $product->alert_stock_level) {
+        Log::info("Low stock detected for {$product->name}. Current: {$product->initial_stock}, Alert: {$product->alert_stock_level}. Sending email.");
+        $this->sendLowStockEmail($product->name, $product->initial_stock);
     }
 }
+
+private function sendLowStockEmail($productName, $currentStock)
+    {
+        $mail = new PHPMailer(true);
+
+        try {
+            // SMTP Configuration
+            $mail->isSMTP();
+            $mail->Host       = env('MAIL_HOST');
+            $mail->SMTPAuth   = true;
+            $mail->Username   = env('MAIL_USERNAME');
+            $mail->Password   = env('MAIL_PASSWORD');
+            $mail->SMTPSecure = env('MAIL_ENCRYPTION', 'tls'); // Default to tls if not set
+            $mail->Port       = env('MAIL_PORT', 587);
+
+            // Set sender
+            $mail->setFrom(env('MAIL_FROM_ADDRESS'), env('MAIL_FROM_NAME'));
+
+            // Fetch all users where the role is 'admin'
+            // Change 'role' to 'is_admin' if your database logic uses the integer column
+            $admins = User::where('role', 'admin')->get();
+
+            if ($admins->isEmpty()) {
+                Log::warning("Low stock alert for {$productName} could not be sent: No admins found.");
+                return;
+            }
+
+            // Add all admins as recipients
+            foreach ($admins as $admin) {
+                $mail->addAddress($admin->email, $admin->name);
+            }
+
+            // Email Content
+            $mail->isHTML(true);
+            $mail->Subject = 'Low Stock Alert: ' . $productName;
+            $mail->Body    = "Inventory Alert: Product <b>{$productName}</b> is running low. Remaining: <b>{$currentStock}</b>.";
+            
+            $mail->send();
+            
+        } catch (Exception $e) {
+            Log::error("Email Error: " . $mail->ErrorInfo);
+        } catch (\Exception $e) {
+            Log::error("General Error: " . $e->getMessage());
+        }
+    }
 }

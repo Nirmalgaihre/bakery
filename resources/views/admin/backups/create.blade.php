@@ -27,7 +27,7 @@
                 Backup Options
             </h4>
 
-            <form action="#" method="POST" class="space-y-5">
+            <form action="{{ route('admin.backups.store') }}" method="POST" class="space-y-5">
                 @csrf
                 
                 <div class="space-y-3">
@@ -65,7 +65,7 @@
                         <input type="text" name="prefix" id="prefix" placeholder="manual_dump" 
                             class="block w-full pl-16 pr-3 py-2 text-xs border border-slate-200 bg-slate-50/50 rounded-lg focus:outline-none focus:border-blue-500 focus:bg-white font-mono placeholder-slate-300">
                     </div>
-                    <p class="text-[10px] text-slate-400">System appends current timestamp automatically: <span class="font-mono">dc_pkg_manual_dump_20260613.zip</span></p>
+                    <p class="text-[10px] text-slate-400">System appends current timestamp automatically: <span class="font-mono">dc_pkg_manual_dump_all_{{ date('Ymd') }}.zip</span></p>
                 </div>
 
                 <div class="pt-2 border-t border-slate-100 flex items-center justify-between">
@@ -94,11 +94,11 @@
                     
                     <div class="space-y-1">
                         <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                            <div class="bg-blue-600 h-full rounded-full" style="width: 42%"></div>
+                            <div class="bg-blue-600 h-full rounded-full" style="width: 0%"></div>
                         </div>
                         <div class="flex justify-between text-[10px] text-slate-400 font-mono">
-                            <span>Used: 142.4 GB (42%)</span>
-                            <span>Free: 197.6 GB</span>
+                            <span>Used: 0 GB (0%)</span>
+                            <span>Free: 0 GB</span>
                         </div>
                     </div>
                 </div>
@@ -106,9 +106,9 @@
                 <div class="bg-slate-50/80 border border-slate-100 rounded-xl p-3 text-[11px] space-y-1.5 text-slate-600">
                     <div class="flex items-center justify-between text-slate-800 font-medium">
                         <span>Last Backup Status</span>
-                        <span class="text-emerald-600 font-bold"><i class="fa-solid fa-circle-check"></i> Success</span>
+                        <span class="text-slate-400 font-bold">No Records</span>
                     </div>
-                    <p class="font-mono text-[10px] text-slate-400">Timestamp: 2026-06-12 04:15:01</p>
+                    <p class="font-mono text-[10px] text-slate-400">Timestamp: N/A</p>
                 </div>
             </div>
         </div>
@@ -119,7 +119,7 @@
             <h4 class="text-xs font-bold text-slate-400 tracking-wider uppercase">
                 Available Snapshot Archives
             </h4>
-            <span class="bg-slate-100 text-slate-600 text-[10px] font-mono px-2 py-0.5 rounded-md font-semibold">Total: 3 Local Files</span>
+            <span class="bg-slate-100 text-slate-600 text-[10px] font-mono px-2 py-0.5 rounded-md font-semibold">Total: 0 Local Files</span>
         </div>
 
         <div class="overflow-x-auto">
@@ -134,34 +134,9 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 text-xs text-slate-700 font-medium">
-                    <tr class="hover:bg-slate-50/50 transition-colors">
-                        <td class="py-3.5 px-6 font-mono text-slate-900 flex items-center gap-2">
-                            <i class="fa-solid fa-file-zipper text-amber-500"></i> dc_pkg_scheduled_1718260.zip
-                        </td>
-                        <td class="py-3.5 px-6">
-                            <span class="bg-blue-50 text-blue-700 text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wide">Full Backup</span>
-                        </td>
-                        <td class="py-3.5 px-6 font-mono text-slate-500">42.8 MB</td>
-                        <td class="py-3.5 px-6 text-slate-500">2026-06-12 04:15 AM</td>
-                        <td class="py-3.5 px-6 text-right space-x-1.5">
-                            <button title="Download Archive" class="text-slate-500 hover:text-blue-600 transition-colors p-1"><i class="fa-solid fa-download"></i></button>
-                            <button title="Verify Integrity" class="text-slate-500 hover:text-emerald-600 transition-colors p-1"><i class="fa-solid fa-shield-heart"></i></button>
-                            <button title="Delete Archive" class="text-slate-500 hover:text-red-600 transition-colors p-1"><i class="fa-solid fa-trash-can"></i></button>
-                        </td>
-                    </tr>
-                    <tr class="hover:bg-slate-50/50 transition-colors">
-                        <td class="py-3.5 px-6 font-mono text-slate-900 flex items-center gap-2">
-                            <i class="fa-solid fa-file-zipper text-amber-500"></i> dc_pkg_manual_dump_pre_patch.zip
-                        </td>
-                        <td class="py-3.5 px-6">
-                            <span class="bg-purple-50 text-purple-700 text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wide">DB Only</span>
-                        </td>
-                        <td class="py-3.5 px-6 font-mono text-slate-500">4.1 MB</td>
-                        <td class="py-3.5 px-6 text-slate-500">2026-06-10 11:32 PM</td>
-                        <td class="py-3.5 px-6 text-right space-x-1.5">
-                            <button title="Download Archive" class="text-slate-500 hover:text-blue-600 transition-colors p-1"><i class="fa-solid fa-download"></i></button>
-                            <button title="Verify Integrity" class="text-slate-500 hover:text-emerald-600 transition-colors p-1"><i class="fa-solid fa-shield-heart"></i></button>
-                            <button title="Delete Archive" class="text-slate-500 hover:text-red-600 transition-colors p-1"><i class="fa-solid fa-trash-can"></i></button>
+                    <tr>
+                        <td colspan="5" class="py-8 text-center text-slate-400 text-xs">
+                            No backup archives found on this storage node infrastructure.
                         </td>
                     </tr>
                 </tbody>

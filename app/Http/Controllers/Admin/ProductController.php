@@ -5,10 +5,21 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\SectorCategory; 
-use App\Models\Product;        
+use App\Models\Product;       
+use App\Exports\ProductsExport;
+use App\Imports\ProductsImport;
+use Maatwebsite\Excel\Facades\Excel; 
 
 class ProductController extends Controller
 {
+    public function __construct()
+    {
+        // Only admins can create, store, edit, update, or import products.
+        $this->middleware('can:create,App\Models\Product')->only(['create', 'store', 'importForm', 'import']);
+        $this->middleware('can:update,product')->only(['edit', 'update']);
+        // Note: Deletion policy would go here if you have a destroy method.
+    }
+
     /**
      * Display a listing of the registered products.
      */
@@ -27,6 +38,14 @@ class ProductController extends Controller
         $categories = SectorCategory::orderBy('name', 'asc')->get();
         return view('admin.products.create', compact('categories'));
     }
+    /**
+ * Display the specified product.
+ */
+public function show($id)
+{
+    // Redirect to index because we don't have a dedicated "show" page
+    return redirect()->route('admin.products.index');
+}
 
     /**
      * Store a newly created product in the database matching your migration schema.
@@ -71,5 +90,61 @@ class ProductController extends Controller
     $product = \App\Models\Product::findOrFail($id);
     // आफ्नो आवश्यकता अनुसार view को पाथ मिलाउनुहोस्
     return view('admin.products.edit', compact('product'));
+}
+public function export(Request $request)
+{
+    $type = $request->query('type', 'xlsx');
+    $filename = 'products_' . now()->format('Ymd_His');
+
+    if ($type === 'csv') {
+        return Excel::download(new ProductsExport(), $filename . '.csv', \Maatwebsite\Excel\Excel::CSV);
+    }
+
+    return Excel::download(new ProductsExport(), $filename . '.xlsx');
+}
+
+public function importForm()
+{
+    return view('admin.products.import');
+}
+
+public function import(Request $request)
+{
+    $request->validate([
+        'file' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
+    ]);
+
+    $import = new ProductsImport();
+
+    try {
+        Excel::import($import, $request->file('file'));
+    } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
+        $failures = $e->failures();
+        $messages = [];
+        foreach ($failures as $failure) {
+            $messages[] = "Row {$failure->row()}: " . implode(', ', $failure->errors());
+        }
+        return redirect()->back()->with('error', 'Import had errors: ' . implode(' | ', $messages));
+    } catch (\Exception $e) {
+        return redirect()->back()->with('error', 'Import failed: ' . $e->getMessage());
+    }
+
+    $message = "Import complete. Created: {$import->createdCount}, Updated: {$import->updatedCount}.";
+    return redirect()->route('admin.products.index')->with('success', $message);
+}
+
+public function importTemplate()
+{
+    $headings = ['name', 'category', 'purchase_cost', 'selling_price', 'inventory_unit', 'initial_stock', 'current_stock', 'alert_stock_level'];
+
+    return Excel::download(
+        new class($headings) implements \Maatwebsite\Excel\Concerns\FromArray, \Maatwebsite\Excel\Concerns\WithHeadings {
+            private array $headings;
+            public function __construct(array $headings) { $this->headings = $headings; }
+            public function array(): array { return []; }
+            public function headings(): array { return $this->headings; }
+        },
+        'product_import_template.xlsx'
+    );
 }
 }

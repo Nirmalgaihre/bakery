@@ -1,0 +1,13 @@
+Starting Nmap 7.99 ( https://nmap.org ) at 2026-06-28 13:52 +0545
+Stats: 0:00:07 elapsed; 0 hosts completed (1 up), 1 undergoing Service Scan
+Service scan Timing: About 0.00% done
+Nmap scan report for bakery.nirmalgaihre.com.np (192.250.235.32)
+Host is up (0.22s latency).
+rDNS record for 192.250.235.32: s1310.sgp1.mysecurecloudhost.com
+
+PORT    STATE SERVICE  VERSION
+80/tcp  open  http     LiteSpeed httpd
+443/tcp open  ssl/http LiteSpeed httpd
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 18.20 seconds

@@ -59,6 +59,7 @@ class StaffController extends Controller
         'name'     => $validated['name'],
         'email'    => $validated['email'],
         'password' => Hash::make($validated['password']),
+        'role'     => $validated['role'], // Add this line
     ]);
 
     // ३. रोल असाइन गर्ने (syncRoles प्रयोग गर्दा पुरानो रोल हट्छ र नयाँ मात्र बस्छ)
@@ -135,6 +136,7 @@ class StaffController extends Controller
 
         $staff->name = $validated['name'];
         $staff->email = $validated['email'];
+        $staff->role = $validated['role']; // Add this line
 
         if (!empty($validated['password'])) {
             $staff->password = Hash::make($validated['password']);

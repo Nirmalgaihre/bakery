@@ -3,61 +3,103 @@
 namespace App\Services;
 
 use ZipArchive;
+use Spatie\DbDumper\Databases\MySql;
+use Spatie\Backup\Tasks\Backup\BackupJobFactory;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 
 class BackupService
 {
-    public function run($scope, $prefix = null)
-{
-    $dir = storage_path('app/backups');
-    if (!file_exists($dir)) mkdir($dir, 0755, true);
+    /**
+     * Run the backup process.
+     *
+     * @param string $scope  'all', 'db_only', or 'files_only'
+     * @param string $prefix
+     * @return array
+     * @throws \Exception
+     */
+    public function run(string $scope = 'all', string $prefix = 'manual'): array
+    {
+        $backupDir = storage_path('app/backups');
+        if (!File::exists($backupDir)) {
+            File::makeDirectory($backupDir, 0755, true);
+        }
 
-    $timestamp = date('Ymd_His');
-    $sqlFile = $dir . "/db_dump_{$timestamp}.sql";
-    $zipFilename = "dc_pkg_" . ($prefix ?: 'manual') . "_" . $timestamp . ".zip";
-    $zipPath = $dir . '/' . $zipFilename;
+        $timestamp = now()->format('Ymd-His');
+        $baseFilename = sprintf(
+            'dc_pkg_%s_%s_%s',
+            Str::slug($prefix),
+            $scope,
+            $timestamp
+        );
+        $dumpBinaryPath = '/opt/lampp/bin/';
+        if ($scope === 'all' || $scope === 'db_only') {
+            $dbFilename = $baseFilename . '.sql';
+            $dbPath = $backupDir . '/' . $dbFilename;
 
-    // सिधै हार्डकोडेड कन्फिगरेसन प्रयोग गर्नुहोस् (तपाईंको DB विवरण अनुसार)
-    $db_host = '127.0.0.1'; 
-    $db_user = 'root';
-    $db_name = 'bakery';
-    // पासवर्ड छैन भने यो लाइनलाई यत्तिकै छाड्नुहोस्
-    $db_pass = ''; 
+            MySql::create()
+                ->setDbName(config('database.connections.mysql.database'))
+                ->setUserName(config('database.connections.mysql.username'))
+                ->setPassword(config('database.connections.mysql.password'))
+                ->setHost(config('database.connections.mysql.host'))
+                ->setPort(config('database.connections.mysql.port'))
+                ->setDumpBinaryPath($dumpBinaryPath)
+                ->dumpToFile($dbPath);
+        }
 
-    $mysqldumpPath = '/opt/lampp/bin/mysqldump';
-    
-    // कमाण्ड बनाउँदा पासवर्ड छ कि छैन जाँच गर्ने
-    $passArg = !empty($db_pass) ? '-p' . escapeshellarg($db_pass) : '';
-    
-    $command = sprintf(
-        '%s -h %s -u %s %s %s > %s 2>&1',
-        $mysqldumpPath,
-        escapeshellarg($db_host),
-        escapeshellarg($db_user),
-        $passArg,
-        escapeshellarg($db_name),
-        escapeshellarg($sqlFile)
-    );
-    
-    exec($command, $output, $returnCode);
+        $finalPath = null;
+        $finalFilename = null;
 
-    if ($returnCode !== 0) {
-        // एरर म्यासेजलाई अझ प्रष्ट हेर्न
-        throw new \Exception("mysqldump failed (Code $returnCode). Output: " . implode(" ", $output));
+        if ($scope === 'all' || $scope === 'files_only') {
+            $zipFilename = $baseFilename . '.zip';
+            $zipPath = $backupDir . '/' . $zipFilename;
+            $zip = new ZipArchive();
+
+            if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== TRUE) {
+                throw new \Exception("Cannot create zip archive at {$zipPath}");
+            }
+
+            // Add DB dump to zip
+            if ($scope === 'all' && isset($dbPath) && File::exists($dbPath)) {
+                $zip->addFile($dbPath, basename($dbPath));
+            }
+
+            // Add other important files/directories to zip.
+            // Example: public/uploads or storage/app/public
+            // Using storage/app/public as an example here.
+            $filesPath = storage_path('app/public'); // Adjust this path to what you need to back up
+            if (File::exists($filesPath)) {
+                $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($filesPath), \RecursiveIteratorIterator::LEAVES_ONLY);
+                foreach ($files as $name => $file) {
+                    if (!$file->isDir()) {
+                        $filePath = $file->getRealPath();
+                        $relativePath = 'files/' . substr($filePath, strlen($filesPath) + 1);
+                        $zip->addFile($filePath, $relativePath);
+                    }
+                }
+            }
+
+            $zip->close();
+
+            // Clean up the temporary SQL file
+            if ($scope === 'all' && isset($dbPath) && File::exists($dbPath)) {
+                File::delete($dbPath);
+            }
+
+            $finalPath = $zipPath;
+            $finalFilename = $zipFilename;
+        } elseif ($scope === 'db_only') {
+            $finalPath = $dbPath;
+            $finalFilename = $dbFilename;
+        }
+
+        return [
+            'filename' => $finalFilename,
+            'size' => $finalPath && File::exists($finalPath) ? $this->formatBytes(File::size($finalPath)) : '0 B',
+            'path' => $finalPath,
+        ];
     }
 
-    // ... बाँकी जिप बनाउने कोड उस्तै रहन्छ
-    $zip = new \ZipArchive();
-    if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === true) {
-        $zip->addFile($sqlFile, 'database_dump.sql');
-        $zip->close();
-    }
-    if (file_exists($sqlFile)) unlink($sqlFile);
-
-    return [
-        'filename' => $zipFilename,
-        'size' => file_exists($zipPath) ? $this->formatBytes(filesize($zipPath)) : '0 KB'
-    ];
-}
     private function formatBytes($bytes, $precision = 2)
     {
         $units = ['B', 'KB', 'MB', 'GB', 'TB'];

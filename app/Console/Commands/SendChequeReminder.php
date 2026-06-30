@@ -20,25 +20,30 @@ class SendChequeReminder extends Command
 
     public function handle()
     {
-        $operator = User::where('role', 'operator')->first();
+        $admins = User::where('role', 'admin')->get();
 
-        if (!$operator) {
-            $this->error("No user found with role: operator");
+        if ($admins->isEmpty()) {
+            $this->error("No users found with the 'admin' role.");
             return;
         }
 
         $today = Carbon::today();
         $cheques = Cheque::whereNull('email_sent_at')
-                         ->where('maturity_date_ad', '<=', $today)
+                         ->where('send_reminder', true) // Only send if reminder is enabled
+                         ->whereDate('maturity_date_ad', $today)
                          ->get();
 
         if ($cheques->isEmpty()) {
-            $this->info("No pending cheques to process.");
+            $this->info("No cheques are due for reminder today.");
             return;
         }
 
         foreach ($cheques as $cheque) {
-            $this->sendEmail($cheque, $operator);
+            foreach ($admins as $admin) {
+                $this->sendEmail($cheque, $admin);
+            }
+            // Mark as sent after notifying all admins
+            $cheque->update(['email_sent_at' => Carbon::now()]);
         }
     }
 
@@ -63,7 +68,7 @@ class SendChequeReminder extends Command
             );
 
             $mail->setFrom(env('MAIL_FROM_ADDRESS'), env('MAIL_FROM_NAME'));
-            $mail->addAddress($operator->email);
+            $mail->addAddress($admin->email, $admin->name);
 
             $mail->isHTML(true);
             $mail->CharSet = 'UTF-8'; // नेपाली अक्षरको लागि यो अनिवार्य छ
@@ -71,7 +76,7 @@ class SendChequeReminder extends Command
 
             $mail->Body = "
             आदरणीय {$operator->name} ज्यू,<br><br>
-
+            
             यो Deurali Chemical को सिस्टमबाट स्वचालित रूपमा पठाइएको रिमाइन्डर सूचना हो।<br><br>
 
             तपाईंले <b>{$cheque->party_name}</b> लाई उपलब्ध गराउनुभएको चेकको म्याद आज पूरा भएको जानकारी गराउन चाहन्छौं। 
@@ -97,26 +102,9 @@ class SendChequeReminder extends Command
             ";
 
             $mail->send();
-            
-            $cheque->update(['email_sent_at' => Carbon::now()]);
-            $this->info("Sent to {$operator->email}: {$cheque->cheque_no}");
+            $this->info("Reminder for Cheque #{$cheque->cheque_no} sent to {$admin->email}.");
         } catch (Exception $e) {
-            $this->error("Failed to send {$cheque->cheque_no}: " . $mail->ErrorInfo);
+            $this->error("Failed to send reminder for Cheque #{$cheque->cheque_no} to {$admin->email}: " . $mail->ErrorInfo);
         }
-    }
-
-    public function index(Request $request)
-    {
-        $cheques = Cheque::query()
-            ->when($request->search, function($q, $s) {
-                $q->where('cheque_no', 'like', "%$s%")
-                ->orWhere('party_name', 'like', "%$s%")
-                ->orWhere('bank_name', 'like', "%$s%");
-            })
-            ->latest()
-            ->paginate(10)
-            ->withQueryString(); // Crucial for keeping search term after page clicks
-
-        return view('admin.cheques.index', compact('cheques'));
     }
 }

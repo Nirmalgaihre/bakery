@@ -63,6 +63,13 @@
                 </div>
 
                 <div class="space-y-1 sm:col-span-2">
+                    <label class="flex items-center cursor-pointer">
+                        <input type="checkbox" name="send_reminder" value="1" checked class="rounded border-slate-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                        <span class="ml-2 text-xs text-slate-700">Send an email reminder on the maturity date</span>
+                    </label>
+                </div>
+
+                <div class="space-y-1 sm:col-span-2">
                     <label class="text-[11px] font-bold text-slate-600 uppercase">Remarks</label>
                     <textarea name="remarks" rows="2" placeholder="Enter any additional notes regarding this cheque..."
                         class="w-full px-3 py-1.5 border border-slate-200 text-xs rounded focus:outline-none focus:border-blue-500">{{ old('remarks') }}</textarea>

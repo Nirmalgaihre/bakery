@@ -42,11 +42,13 @@ class ChequeController extends Controller
             'maturity_date_bs' => 'required',
             'status'           => 'nullable|string',
             'remarks'          => 'nullable|string',
+            'send_reminder'    => 'nullable|boolean',
         ]);
 
         $validated['issue_date_ad'] = LaravelNepaliDate::from($request->issue_date_bs)->toEnglishDate();
         $validated['maturity_date_ad'] = LaravelNepaliDate::from($request->maturity_date_bs)->toEnglishDate();
         $validated['status'] = $request->status ?? 'pending';
+        $validated['send_reminder'] = $request->has('send_reminder');
 
         Cheque::create($validated);
         

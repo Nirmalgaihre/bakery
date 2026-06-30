@@ -58,7 +58,7 @@
 
                         <label class="relative flex items-start p-4 rounded-xl border border-slate-200 bg-white cursor-pointer hover:bg-slate-50/50 transition-colors">
                             <div class="flex items-center h-5">
-                                <input type="radio" name="backup_scope" value="database" class="h-4 w-4 text-blue-600 border-slate-300 focus:ring-blue-50">
+                                <input type="radio" name="backup_scope" value="db_only" class="h-4 w-4 text-blue-600 border-slate-300 focus:ring-blue-50">
                             </div>
                             <div class="ml-3">
                                 <span class="block text-xs font-bold text-slate-800">Database SQL Only</span>

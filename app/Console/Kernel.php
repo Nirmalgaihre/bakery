@@ -22,9 +22,16 @@ class Kernel extends ConsoleKernel
      * @param  \Illuminate\Console\Scheduling\Schedule  $schedule
      * @return void
      */
-   protected function schedule(Schedule $schedule)
+protected function schedule(Schedule $schedule)
 {
-    $schedule->command('cheque:reminder')->dailyAt('23:13');
+    // First command
+    $schedule->command('cheque:reminder')
+        ->dailyAt('07:00');
+
+    // Second command
+    $schedule->command('backup:daily')
+        ->dailyAt('19:00')
+        ->withoutOverlapping();
 }
 
     /**

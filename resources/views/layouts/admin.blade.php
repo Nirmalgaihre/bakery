@@ -388,6 +388,14 @@
                             </a>
                         </div>
                     </div>
+                    <!-- Release Notes Link -->
+                    <div class="space-y-0.5 mt-4">
+                        <a href="{{ route('admin.release-notes.index') }}"
+                            class="flex items-center px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->routeIs('admin.release-notes.*') ? 'text-white bg-brandDarkLight/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }}">
+                            <i class="fa-solid fa-code-branch mr-3 w-4 text-center text-sm text-slate-500"></i>
+                            Release Notes
+                        </a>
+                    </div>
                 </div>
             </div>
 
@@ -403,41 +411,11 @@
 
                 <!-- Backups -->
                 <div class="space-y-0.5">
-                    <button @click="openBackupMenu = !openBackupMenu"
-                        class="w-full flex items-center justify-between px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->is('admin/backups*') ? 'text-white bg-brandDarkLight/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }} outline-none">
-                        <span class="flex items-center">
-                            <i class="fa-solid fa-folder-open mr-3 w-4 text-center text-sm text-slate-500"></i>Backups
-                        </span>
-                        <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-200"
-                            :class="openBackupMenu ? 'rotate-180 text-slate-300' : ''"></i>
-                    </button>
-
-                    <div x-show="openBackupMenu" x-cloak x-collapse
-                        class="pl-4 pb-2 space-y-2 border-l border-slate-800 ml-5 mt-1">
-                        <form action="{{ route('admin.backups.store') }}" method="POST" class="px-2 pt-1">
-                            @csrf
-                            <div class="flex items-center gap-1">
-                                <select name="backup_scope"
-                                    class="bg-slate-900 border border-slate-700 text-slate-300 text-[11px] rounded p-1 w-full focus:outline-none focus:border-blue-500">
-                                    <option value="all">Full Backup</option>
-                                    <option value="database">DB Only</option>
-                                    <option value="files">Files Only</option>
-                                </select>
-                                <button type="submit"
-                                    class="bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded text-[11px] font-medium transition-colors">
-                                    Run
-                                </button>
-                            </div>
-                        </form>
-
-                        <div class="h-px bg-slate-800/60 mx-2"></div>
-
-                        <a href="{{ route('admin.backups.index') }}"
-                            class="flex items-center px-2 py-1 text-[12px] transition-all {{ request()->routeIs('admin.backups.index') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
-                            <i class="fa-solid fa-cloud-arrow-down mr-2 text-[10px] text-slate-500 w-3 text-center"></i>
-                            History Log
-                        </a>
-                    </div>
+                    <a href="{{ route('admin.backups.index') }}"
+                        class="flex items-center px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->is('admin/backups*') ? 'text-white bg-brandDarkLight/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }}">
+                        <i class="fa-solid fa-cloud-arrow-down mr-3 w-4 text-center text-sm text-slate-500"></i>
+                        Backup & Restore
+                    </a>
                 </div>
 
                 <!-- User Controls -->
@@ -515,11 +493,15 @@
             </div>
 
             <div class="flex shrink-0 items-center gap-2 md:gap-4">
-                <div class="relative" x-data="{ 
-                    openNotification: false,
-                    readItems: new Set(),
-                    markAsRead(id) { this.readItems.add(id); } 
-                }">
+                <div class="relative" x-data="{
+                        openNotification: false,
+                        readItems: $persist([]),
+                        markAsRead(id) {
+                            if (!this.readItems.includes(id)) {
+                                this.readItems.push(id);
+                            }
+                        }
+                    }">
                     <button @click="openNotification = !openNotification"
                         class="relative flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition-all hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
                         <i class="fa-solid fa-bell text-sm"></i>
@@ -527,7 +509,7 @@
                         @if($notificationCount > 0)
                         <span x-show="readItems.size < {{ $notificationCount }}"
                             class="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm ring-2 ring-white">
-                            {{ $notificationCount }}
+                            {{ $notificationCount - count(array_intersect(array_merge($notifications['lowStock']->pluck('id')->map(fn($id) => 'stock-'.$id)->all(), $notifications['cheques']->pluck('id')->map(fn($id) => 'cheque-'.$id)->all()), [])) }}
                         </span>
                         @endif
                     </button>
@@ -541,7 +523,10 @@
                                 <p class="text-[10px] font-medium text-slate-400">{{ $notificationCount }} active system
                                     alerts</p>
                             </div>
-                            <button @click="readItems = new Set([...Array({{ $notificationCount }}).keys()])"
+                            <button @click="readItems = [
+                                ...@json($notifications['lowStock']->pluck('id')->map(fn($id) => 'stock-'.$id)),
+                                ...@json($notifications['cheques']->pluck('id')->map(fn($id) => 'cheque-'.$id))
+                                ];"
                                 class="rounded-md bg-white px-2 py-1 text-[10px] font-bold uppercase text-blue-600 ring-1 ring-slate-200 hover:text-blue-800">Mark
                                 all
                                 read</button>
@@ -550,10 +535,9 @@
                         <div class="max-h-80 overflow-y-auto bg-slate-50/50">
                             @if($notificationCount > 0)
                             @foreach($notifications['lowStock'] as $index => $product)
-                            <a href="{{ route('admin.products.index') }}" @click="markAsRead('stock-{{$index}}')"
-                                :class="readItems.has('stock-{{$index}}') ? 'opacity-50 bg-slate-100' : 'bg-white'"
+                            <a href="{{ route('admin.products.index') }}" @click="markAsRead('stock-{{$product->id}}')"
                                 class="block px-4 py-3 border-b border-slate-100 transition-all hover:bg-slate-50">
-                                <div class="flex items-start gap-3">
+                                <div class="flex items-start gap-3" :class="readItems.includes('stock-{{$product->id}}') ? 'opacity-50' : ''">
                                     <div class="mt-0.5 bg-red-100 p-1.5 rounded-md text-red-600"><i
                                             class="fa-solid fa-box-open text-xs"></i></div>
                                     <div>
@@ -566,16 +550,14 @@
                             @endforeach
 
                             @foreach($notifications['cheques'] as $index => $cheque)
-                            <a href="{{ route('admin.cheques.index') }}" @click="markAsRead('cheque-{{$index}}')"
-                                :class="readItems.has('cheque-{{$index}}') ? 'opacity-50 bg-slate-100' : 'bg-white'"
+                            <a href="{{ route('admin.cheques.index') }}" @click="markAsRead('cheque-{{$cheque->id}}')"
                                 class="block px-4 py-3 border-b border-slate-100 transition-all hover:bg-slate-50">
-                                <div class="flex items-start gap-3">
+                                <div class="flex items-start gap-3" :class="readItems.includes('cheque-{{$cheque->id}}') ? 'opacity-50' : ''">
                                     <div class="mt-0.5 bg-blue-100 p-1.5 rounded-md text-blue-600"><i
                                             class="fa-solid fa-money-check text-xs"></i></div>
                                     <div>
                                         <p class="text-xs font-bold text-slate-800">Cheque Due Today</p>
-                                        <p class="text-[11px] text-slate-500 mt-0.5">Ref:
-                                            {{ $cheque->reference_no ?? 'N/A' }}</p>
+                                        <p class="text-[11px] text-slate-500 mt-0.5">Ref: {{ $cheque->cheque_no ?? 'N/A' }}</p>
                                     </div>
                                 </div>
                             </a>
@@ -753,15 +735,16 @@
         </header>
 
         <main class="flex-1 overflow-y-auto bg-slate-50 p-3 sm:p-4 md:p-6">
-    <div class="mx-auto max-w-7xl space-y-6">
-        
-        @yield('content')
-        
-    </div>
-</main>
+            <div class="mx-auto max-w-7xl space-y-6">
+
+                @yield('content')
+
+            </div>
+        </main>
     </div>
 
     <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/persist@3.x.x/dist/cdn.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </body>
 
