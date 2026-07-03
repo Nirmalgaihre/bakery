@@ -7,10 +7,22 @@
             <h1 class="text-2xl font-bold text-slate-800">Customer Ledger</h1>
             <p class="text-sm text-slate-500">Track all customer invoices and outstanding dues.</p>
         </div>
+        @can('manage_invoices')
         <a href="{{ route('admin.invoices.create') }}"
             class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition">
             <i class="fa-solid fa-plus mr-2"></i> Create Invoice
         </a>
+        @endcan
+    </div>
+
+    {{-- Search Section --}}
+    <div class="mb-4 bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
+        <div class="relative w-full">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+            <input type="text" id="searchBox" onkeyup="filterLedger()" placeholder="Search by phone number, customer name, or invoice details..."
+                class="w-full pl-9 pr-4 py-1.5 bg-slate-50 border border-slate-200 text-xs text-slate-700
+                       placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white rounded-md transition-all">
+        </div>
     </div>
 
     <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
@@ -18,6 +30,7 @@
             <table class="w-full text-sm text-left" id="ledgerTable">
                 <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
                     <tr>
+                        <th class="p-4">S.N.</th>
                         <th class="p-4">Phone Number</th>
                         <th class="p-4">Customer Name</th>
                         <th class="p-4">Billing Summary</th>
@@ -30,10 +43,11 @@
                     $totalSpent = $group->sum('grand_total');
                     $totalPaid = $group->sum('paid_amount');
                     $totalDue = $totalSpent - $totalPaid;
-                    @endphp
+                    @endphpd
                     <tr class="hover:bg-slate-50 transition-colors cursor-pointer group"
                         onclick="window.location='{{ route('admin.sales.customer-ledger-by-phone', $phone) }}'">
 
+                        <td class="p-4 font-mono text-xs">{{ $loop->iteration }}</td>
                         <td class="p-4 font-medium text-slate-900">{{ $phone }}</td>
 
                         <td class="p-4 font-bold text-slate-900">
@@ -54,7 +68,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="4" class="p-10 text-center text-slate-500">No records found.</td>
+                        <td colspan="5" class="p-10 text-center text-slate-500">No records found.</td>
                     </tr>
                     @endforelse
                 </tbody>

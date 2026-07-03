@@ -96,9 +96,8 @@
         openWastage: {{ request()->is('admin/returns-wastage*') ? 'true' : 'false' }},
         openChequesMenu: {{ request()->is('admin/cheques*') ? 'true' : 'false' }},
         openBackupMenu: {{ request()->is('admin/backups*') ? 'true' : 'false' }},
-        openAdminSection: {{ request()->is('admin/staff*') || request()->is('admin/roles*') || request()->is('admin/logs*') ? 'true' : 'false' }},
-        openPurchases: {{ request()->is('admin/purchases*') ? 'true' : 'false' }}
-    }">
+        openAdminSection: {{ request()->is('admin/staff*') || request()->is('admin/roles*') || request()->is('admin/logs*') ? 'true' : 'false' }}
+           }">
 
             <!-- Dashboard Section -->
             <div>
@@ -249,28 +248,6 @@
                                 <i
                                     class="fa-solid fa-triangle-exclamation mr-2 text-[11px] text-orange-500 w-3 text-center"></i>Low
                                 Stock
-                            </a>
-                        </div>
-                    </div>
-
-                    <!-- Purchases -->
-                    <div class="space-y-0.5">
-                        <button @click="openPurchases = !openPurchases"
-                            class="w-full flex items-center justify-between px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->is('admin/purchases*') ? 'text-white bg-brandDarkLight/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }} outline-none">
-                            <span class="flex items-center">
-                                <i
-                                    class="fa-solid fa-cart-flatbed mr-3 w-4 text-center text-sm text-slate-500"></i>Purchases
-                            </span>
-                            <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-200"
-                                :class="openPurchases ? 'rotate-180 text-slate-300' : ''"></i>
-                        </button>
-
-                        <div x-show="openPurchases" x-cloak x-collapse
-                            class="pl-4 space-y-0.5 border-l border-slate-800 ml-5 mt-0.5">
-                            <a href="{{ route('admin.purchases.create') }}"
-                                class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.purchases.create') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
-                                <i class="fa-solid fa-plus mr-2 text-[11px] text-slate-500 w-3 text-center"></i>New
-                                Purchase
                             </a>
                         </div>
                     </div>

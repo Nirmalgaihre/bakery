@@ -32,8 +32,10 @@
         {{-- Product Cards Grid --}}
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4" id="product-grid">
             @forelse($products as $product)
+            @php $isOutOfStock = $product->initial_stock <= 0; @endphp
             <div class="product-card bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:border-blue-500
                         hover:shadow-md transition-all cursor-pointer relative overflow-hidden"
+                        hover:shadow-md transition-all cursor-pointer relative overflow-hidden {{ $isOutOfStock ? 'opacity-50 cursor-not-allowed pointer-events-none' : '' }}"
                 data-id="{{ $product->id }}" data-name="{{ $product->name }}" data-price="{{ $product->selling_price }}"
                 data-stock="{{ $product->initial_stock }}" data-unit="{{ $product->inventory_unit }}"
                 data-category="{{ strtolower($product->category) }}">
@@ -166,6 +168,7 @@
             <div class="flex items-center justify-between p-2 border border-slate-200 rounded-md bg-slate-50/50">
                 <span class="text-[10px] font-bold text-slate-700 uppercase">Include 13% VAT</span>
                 <label class="relative inline-flex items-center cursor-pointer select-none">
+                <label class="relative inline-flex items-center cursor-pointer select-none" for="vat-toggle">
                     <input type="checkbox" id="vat-toggle" checked class="sr-only peer">
                     <div class="w-9 h-5 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full
                     after:content-[''] after:absolute after:top-[2px] after:left-[2px]
@@ -387,6 +390,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (stock <= 0) { alert('Out of stock!'); return; }
 
+            
             const existing = cart.find(i => i.id === id);
             if (existing) {
                 if (existing.quantity_kg >= stock) { return; }

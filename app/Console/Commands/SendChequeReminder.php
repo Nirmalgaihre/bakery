@@ -16,7 +16,7 @@ require_once base_path('app/Libraries/PHPMailer/SMTP.php');
 class SendChequeReminder extends Command
 {
     protected $signature = 'cheque:reminder';
-    protected $description = 'Send email to operator for matured cheques';
+    protected $description = 'Send email to admin for matured cheques';
 
     public function handle()
     {
@@ -28,8 +28,9 @@ class SendChequeReminder extends Command
         }
 
         $today = Carbon::today();
+        
+        // Removed ->where('send_reminder', true) as the column does not exist
         $cheques = Cheque::whereNull('email_sent_at')
-                         ->where('send_reminder', true) // Only send if reminder is enabled
                          ->whereDate('maturity_date_ad', $today)
                          ->get();
 
@@ -42,7 +43,7 @@ class SendChequeReminder extends Command
             foreach ($admins as $admin) {
                 $this->sendEmail($cheque, $admin);
             }
-            // Mark as sent after notifying all admins
+            // Mark as sent
             $cheque->update(['email_sent_at' => Carbon::now()]);
         }
     }
@@ -68,43 +69,37 @@ class SendChequeReminder extends Command
             );
 
             $mail->setFrom(env('MAIL_FROM_ADDRESS'), env('MAIL_FROM_NAME'));
-            $mail->addAddress($admin->email, $admin->name);
+            
+            // Corrected: Using $operator variable
+            $mail->addAddress($operator->email, $operator->name);
 
             $mail->isHTML(true);
-            $mail->CharSet = 'UTF-8'; // नेपाली अक्षरको लागि यो अनिवार्य छ
-            $mail->Subject = "महत्वपूर्ण सूचना: चेक #{$cheque->cheque_no} को म्याद पूरा भएको रिमाइन्डर";
+            $mail->CharSet = 'UTF-8';
+            $mail->Subject = "Reminder: Cheque #{$cheque->cheque_no} Matures Today";
 
             $mail->Body = "
-            आदरणीय {$operator->name} ज्यू,<br><br>
+            Dear {$operator->name},<br><br>
             
-            यो Deurali Chemical को सिस्टमबाट स्वचालित रूपमा पठाइएको रिमाइन्डर सूचना हो।<br><br>
+            This is an automated reminder from the Deurali Chemical system.<br><br>
 
-            तपाईंले <b>{$cheque->party_name}</b> लाई उपलब्ध गराउनुभएको चेकको म्याद आज पूरा भएको जानकारी गराउन चाहन्छौं। 
-            उक्त चेकको भुक्तानी तथा आवश्यक प्रक्रियाको लागि कृपया विवरण जाँच गरी आवश्यक कदम चाल्नुहोस्।<br><br>
+            The cheque provided to <b>{$cheque->party_name}</b> is maturing today. Please review the details and take the necessary action to ensure timely processing.<br><br>
 
-            <b>चेक सम्बन्धी विवरण:</b><br><br>
+            <b>Cheque Details:</b><br><br>
 
-            • चेक प्राप्त गर्ने व्यक्ति: <b>{$cheque->party_name}</b><br>
-            • चेक नम्बर: <b>#{$cheque->cheque_no}</b><br>
-            • बैंकको नाम: <b>{$cheque->bank_name}</b><br>
-            • चेक रकम: <b>NPR " . number_format($cheque->amount, 2) . "</b><br>
-            • चेक अवस्था: <b>आज म्याद पूरा भएको</b><br><br>
+            • Party Name: <b>{$cheque->party_name}</b><br>
+            • Cheque Number: <b>#{$cheque->cheque_no}</b><br>
+            • Bank Name: <b>{$cheque->bank_name}</b><br>
+            • Amount: <b>NPR " . number_format($cheque->amount, 2) . "</b><br>
+            • Status: <b>Due Today</b><br><br>
 
-            यो सूचना तपाईंलाई समयमै जानकारी गराउनको लागि पठाइएको हो, ताकि आवश्यक काम समयमा नै सम्पन्न गर्न सकियोस्।<br><br>
-
-            <b>नोट:</b> यो इमेल Deurali Chemical को सिस्टमद्वारा स्वचालित रूपमा (Auto Generated) पठाइएको हो। 
-            कृपया यसको जवाफ नदिनुहोस्।<br><br>
-
-            धन्यवाद।<br><br>
-
-            सादर,<br>
+            Regards,<br>
             Deurali Chemical Pvt. Ltd.
             ";
 
             $mail->send();
-            $this->info("Reminder for Cheque #{$cheque->cheque_no} sent to {$admin->email}.");
+            $this->info("Reminder for Cheque #{$cheque->cheque_no} sent to {$operator->email}.");
         } catch (Exception $e) {
-            $this->error("Failed to send reminder for Cheque #{$cheque->cheque_no} to {$admin->email}: " . $mail->ErrorInfo);
+            $this->error("Failed to send reminder for Cheque #{$cheque->cheque_no} to {$operator->email}: " . $mail->ErrorInfo);
         }
     }
 }

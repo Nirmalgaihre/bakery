@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\SectorCategory;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware; // Add this
+use Illuminate\Routing\Controllers\Middleware;
 
 class SectorCategoryController extends Controller 
 {
@@ -13,6 +15,7 @@ class SectorCategoryController extends Controller
         // Only admins can create, store, edit, or update categories.
         $this->middleware('can:create,App\Models\SectorCategory')->only(['store']);
         $this->middleware('can:update,category')->only(['edit', 'update']);
+                $this->middleware('auth'); 
     }
 
     /**
@@ -23,6 +26,7 @@ class SectorCategoryController extends Controller
         $categories = SectorCategory::all();
         return view('admin.categories', compact('categories'))->with('editingCategory', null);
     }
+    
 
     /**
      * Store a newly created resource in storage.
@@ -70,4 +74,5 @@ class SectorCategoryController extends Controller
             return redirect()->back()->with('error', 'There was a problem updating your file. Please try again.');
         }
     }
+    
 }

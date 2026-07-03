@@ -7,6 +7,7 @@
 <div class="max-w-5xl mx-auto">
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         
+        @can('manage_categories')
         <!-- Form Section -->
         <div class="md:col-span-1">
             <div class="bg-white border border-slate-200 rounded-lg shadow-xs p-6">
@@ -38,6 +39,7 @@
                 </form>
             </div>
         </div>
+        @endcan
 
         <!-- Table Section -->
         <div class="md:col-span-2">
@@ -56,9 +58,11 @@
                             <td class="px-6 py-4 font-mono text-xs">{{ $category->id }}</td>
                             <td class="px-6 py-4 font-semibold text-slate-800">{{ $category->name }}</td>
                             <td class="px-6 py-4 text-right">
-                                @can('update', $category)
+                                @can('manage_categories')
                                 <a href="{{ route('admin.categories.edit', $category->id) }}" class="text-blue-600 hover:text-blue-800 text-xs font-bold uppercase">Edit</a>
                                 @endcan
+                                {{-- Delete button would go here, also wrapped in @can('manage_categories') --}}
+                                {{-- <button type="button" class="text-red-600 hover:text-red-800 text-xs font-bold uppercase ml-2">Delete</button> --}}
                             </td>
                         </tr>
                         @empty

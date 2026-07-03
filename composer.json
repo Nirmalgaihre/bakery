@@ -10,6 +10,7 @@
         "anuzpandey/laravel-nepali-date": "^3.3",
         "laravel/framework": "^13.8",
         "laravel/tinker": "^3.0",
+        "maatwebsite/excel": "^3.1",
         "phpmailer/phpmailer": "^7.1",
         "setasign/fpdf": "^1.8",
         "spatie/browsershot": "^5.4",

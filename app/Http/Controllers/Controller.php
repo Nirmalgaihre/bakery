@@ -2,7 +2,11 @@
 
 namespace App\Http\Controllers;
 
-abstract class Controller
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Foundation\Validation\ValidatesRequests;
+use Illuminate\Routing\Controller as BaseController;
+
+abstract class Controller extends BaseController
 {
-    // Essential Laravel core base controller class that all your other controllers extend.
+    use AuthorizesRequests, ValidatesRequests;
 }

@@ -9,50 +9,37 @@ use App\Models\Product;
 use App\Exports\ProductsExport;
 use App\Imports\ProductsImport;
 use Maatwebsite\Excel\Facades\Excel; 
+use Illuminate\Support\Facades\Log;
+use Maatwebsite\Excel\Validators\ValidationException;
 
 class ProductController extends Controller
 {
     public function __construct()
     {
-        // Only admins can create, store, edit, update, or import products.
-        $this->middleware('can:create,App\Models\Product')->only(['create', 'store', 'importForm', 'import']);
+        $this->middleware('can:create,App\Models\Product')->only(['create', 'store', 'importForm', 'import', 'importTemplate']);
+        // Ensure your Route Model Binding is set up for 'product'
         $this->middleware('can:update,product')->only(['edit', 'update']);
-        // Note: Deletion policy would go here if you have a destroy method.
     }
 
-    /**
-     * Display a listing of the registered products.
-     */
     public function index()
     {
-        // Fetches all product models ordered by their creation date with pagination
         $products = Product::latest()->paginate(15);
         return view('admin.products.index', compact('products'));
     }
 
-    /**
-     * Show the form engine for creating a new warehouse product item file.
-     */
     public function create()
     {
         $categories = SectorCategory::orderBy('name', 'asc')->get();
         return view('admin.products.create', compact('categories'));
     }
-    /**
- * Display the specified product.
- */
-public function show($id)
-{
-    // Redirect to index because we don't have a dedicated "show" page
-    return redirect()->route('admin.products.index');
-}
 
-    /**
-     * Store a newly created product in the database matching your migration schema.
-     */
+    public function show($id)
+    {
+        return redirect()->route('admin.products.index');
+    }
+
     public function store(Request $request)
     {
-        // 1. Strict Validation pipeline execution matching your specific schema rules
         $validated = $request->validate([
             'name'              => 'required|string|max:255|unique:products,name',
             'category_id'       => 'required|exists:sector_categories,id', 
@@ -61,15 +48,10 @@ public function show($id)
             'inventory_unit'    => 'required|string|in:kg,paau,bottle,cartoon,boxes',
             'initial_stock'     => 'required|numeric|min:0', 
             'alert_stock_level' => 'required|integer|min:0',
-        ], [
-            'category_id.exists' => 'The selected system master category configuration is invalid.',
-            'inventory_unit.in'  => 'Please select a valid inventory packaging unit from the dropdown list.'
         ]);
 
-        // Find the category model to extract its text name string
         $categoryModel = SectorCategory::findOrFail($validated['category_id']);
 
-        // 2. Persistent storage generation mapping parameters down to your columns
         Product::create([
             'name'              => $validated['name'],
             'category'          => $categoryModel->name, 
@@ -77,74 +59,91 @@ public function show($id)
             'selling_price'     => $validated['selling_price'],
             'inventory_unit'    => $validated['inventory_unit'],
             'initial_stock'     => $validated['initial_stock'], 
-            'stock'             => $validated['initial_stock'], // सुरुमा Current Stock र Initial Stock बराबर हुन्छ
+            'stock'             => $validated['initial_stock'],
             'alert_stock_level' => $validated['alert_stock_level'], 
         ]);
 
-        // 3. Automated redirection accompanied by a global success banner token state
         return redirect()->route('admin.products.index')
                          ->with('success', 'Product registered in the system inventory matrix successfully!');
     }
-    public function edit($id)
-{
-    $product = \App\Models\Product::findOrFail($id);
-    // आफ्नो आवश्यकता अनुसार view को पाथ मिलाउनुहोस्
-    return view('admin.products.edit', compact('product'));
-}
-public function export(Request $request)
-{
-    $type = $request->query('type', 'xlsx');
-    $filename = 'products_' . now()->format('Ymd_His');
 
-    if ($type === 'csv') {
-        return Excel::download(new ProductsExport(), $filename . '.csv', \Maatwebsite\Excel\Excel::CSV);
+    public function edit(Product $product)
+    {
+        return view('admin.products.edit', compact('product'));
     }
 
-    return Excel::download(new ProductsExport(), $filename . '.xlsx');
-}
+    public function export(Request $request, $type)
+    {
+        $extension = ($type === 'csv') ? 'csv' : 'xlsx';
+        $writerType = ($type === 'csv') ? \Maatwebsite\Excel\Excel::CSV : \Maatwebsite\Excel\Excel::XLSX;
+        
+        return Excel::download(new ProductsExport, 'products_registry_' . now()->format('Y-m-d') . '.' . $extension, $writerType);
+    }
 
-public function importForm()
-{
-    return view('admin.products.import');
-}
+    public function importForm()
+    {
+        return view('admin.products.import');
+    }
 
-public function import(Request $request)
-{
-    $request->validate([
-        'file' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
-    ]);
-
-    $import = new ProductsImport();
-
-    try {
-        Excel::import($import, $request->file('file'));
-    } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
-        $failures = $e->failures();
-        $messages = [];
-        foreach ($failures as $failure) {
-            $messages[] = "Row {$failure->row()}: " . implode(', ', $failure->errors());
+    public function import(Request $request)
+    {
+        if (!$request->hasFile('file')) {
+            return back()->with('error', 'Please select a file to upload.');
         }
-        return redirect()->back()->with('error', 'Import had errors: ' . implode(' | ', $messages));
-    } catch (\Exception $e) {
-        return redirect()->back()->with('error', 'Import failed: ' . $e->getMessage());
+
+        $request->validate([
+            'file' => 'required|mimes:xlsx,xls,csv',
+        ]);
+
+        try {
+            $import = new \App\Imports\ProductsImport;
+            Excel::import($import, $request->file('file'));
+
+            $successMessage = 'Products imported successfully!';
+            if ($import->createdCount > 0 || $import->updatedCount > 0) {
+                $successMessage .= " Created: {$import->createdCount}, Updated: {$import->updatedCount}.";
+            }
+
+            if ($import->failures()->isNotEmpty()) {
+                $failureMessages = [];
+                foreach ($import->failures() as $failure) {
+                    $failureMessages[] = "Row {$failure->row()}: " . implode(', ', $failure->errors());
+                }
+                return back()->with('error', $successMessage . "\nSome rows failed to import:\n" . implode("\n", $failureMessages));
+            }
+            
+            return back()->with('success', $successMessage);
+
+        } catch (ValidationException $e) {
+            $failures = $e->failures();
+            $errorMessages = [];
+            foreach ($failures as $failure) {
+                $errorMessages[] = "Row {$failure->row()}: " . implode(', ', $failure->errors());
+            }
+            return back()->with('error', 'Validation failed during import:\n' . implode("\n", $errorMessages));
+        } catch (\Exception $e) {
+            Log::error('Product Import Failed: ' . $e->getMessage(), ['exception' => $e]);
+            return back()->with('error', 'An unexpected error occurred during import: ' . $e->getMessage());
+        }
     }
 
-    $message = "Import complete. Created: {$import->createdCount}, Updated: {$import->updatedCount}.";
-    return redirect()->route('admin.products.index')->with('success', $message);
-}
-
-public function importTemplate()
-{
-    $headings = ['name', 'category', 'purchase_cost', 'selling_price', 'inventory_unit', 'initial_stock', 'current_stock', 'alert_stock_level'];
-
-    return Excel::download(
-        new class($headings) implements \Maatwebsite\Excel\Concerns\FromArray, \Maatwebsite\Excel\Concerns\WithHeadings {
-            private array $headings;
-            public function __construct(array $headings) { $this->headings = $headings; }
-            public function array(): array { return []; }
-            public function headings(): array { return $this->headings; }
-        },
-        'product_import_template.xlsx'
-    );
-}
+    public function importTemplate()
+    {
+        $headings = ['name', 'category', 'purchase_cost', 'selling_price', 'inventory_unit', 'initial_stock', 'current_stock', 'alert_stock_level'];
+        
+        try {
+            return Excel::download(
+                new class($headings) implements \Maatwebsite\Excel\Concerns\FromArray, \Maatwebsite\Excel\Concerns\WithHeadings {
+                    private array $headings;
+                    public function __construct(array $headings) { $this->headings = $headings; }
+                    public function array(): array { return []; }
+                    public function headings(): array { return $this->headings; }
+                },
+                'product_import_template.xlsx'
+            );
+        } catch (\Exception $e) {
+            Log::error("Product import template download failed: " . $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to download template.');
+        }
+    }
 }

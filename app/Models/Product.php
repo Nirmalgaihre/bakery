@@ -10,16 +10,17 @@ use App\Notifications\LowStockAlert;
 
 class Product extends Model
 {
-    protected $fillable = [
-        'name',
-        'category',
-        'purchase_cost',
-        'selling_price',
-        'inventory_unit',
-        'initial_stock',
-        'alert_stock_level',
-        'alert_sent',
-    ];
+   protected $fillable = [
+    'name',
+    'category',
+    'purchase_cost',
+    'selling_price',
+    'inventory_unit',
+    'initial_stock',
+    'stock', // Added this so it can be updated via import
+    'alert_stock_level',
+    'alert_sent',
+];
 
     public function transactions()
     {
@@ -67,4 +68,8 @@ class Product extends Model
             }
         }
     }
+    public function invoiceItems()
+{
+    return $this->hasMany(InvoiceItem::class);
+}
 }

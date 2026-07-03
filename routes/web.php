@@ -3,21 +3,21 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Auth\LoginController;
+use App\Exports\ProductsExport;
 use App\Http\Controllers\Admin\{
     DashboardController, CustomerController, ProductController as AdminProductController,
     SectorCategoryController, StockController, InventoryMovementController,
     InvoiceController, ChequeController, SalesController, BackupController,
     WastageController, SalesDashboardController, CustomerLedgerController,
-    StaffController, RoleController, PurchaseDashboardController, ActivityLogController
+    StaffController,ProductController,RoleController, PurchaseDashboardController, ActivityLogController
 };
 
-// १. Root Gateway
+
+// 1. Root Gateway
 Route::get('/', fn() => Auth::check() ? redirect()->route('admin.dashboard') : redirect()->route('login'));
 Route::get('/invoice/share/{token}', [InvoiceController::class, 'showWebInvoice'])->name('invoice.public_share');
 
-
-
-// २. Authentication Suite (Guest only)
+// 2. Authentication Suite (Guest only)
 Route::middleware(['web', 'guest'])->group(function () {
     Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [LoginController::class, 'login']);
@@ -34,175 +34,206 @@ if (file_exists(__DIR__.'/auth.php')) {
     require __DIR__.'/auth.php';
 }
 
-// ३. SECURE ADMIN MATRIX (Auth & verified users only)
+// 3. SECURE ADMIN MATRIX (Auth & verified users only)
 Route::middleware(['web', 'auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
     
-    // Shared routes (Admin & Accountant)
+    // --- Routes accessible to both Admin and Accountant (primarily view/read operations) ---
+    Route::middleware(['role:admin|accountant'])->group(function () {
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    // --- ROLE: ADMIN वा ACCOUNTANT दुवैका लागि ---
-    Route::middleware(['role:admin|accountant'])->group(function () {
+        // Customers (view only)
+        Route::get('customers', [CustomerController::class, 'index'])->name('customers.index');
+        Route::get('customers/{customer}', [CustomerController::class, 'show'])->name('customers.show');
         
-        // Customers, Products, Categories
-// 1. Define custom specific routes FIRST
-Route::get('products/export', [AdminProductController::class, 'export'])->name('products.export');
-Route::get('products/import', [AdminProductController::class, 'importForm'])->name('products.import.form');
-Route::post('products/import', [AdminProductController::class, 'import'])->name('products.import');
-Route::get('products/template', [AdminProductController::class, 'importTemplate'])->name('products.import.template');
-
-// 2. Define resource routes LAST
-        Route::resource('customers', CustomerController::class);
-Route::resource('products', AdminProductController::class);
-        Route::resource('categories', SectorCategoryController::class);
-        // Inventory Management (सच्याइएको रुटहरू)
-        Route::prefix('inventory')->name('inventory.')->group(function () {
+        // Products (view only)
+        Route::get('products', [AdminProductController::class, 'index'])->name('products.index');
+        Route::get('products/{product}', [AdminProductController::class, 'show'])->name('products.show');
+        // Export route
+        Route::get('/products/export/{type}', [ProductController::class, 'export'])->name('products.export');
     
-            // Inventory Index
+        // Add your import routes here as well
+Route::get('products/import', [ProductController::class, 'importForm'])->name('products.import.form');
+    Route::post('products/import', [ProductController::class, 'import'])->name('products.import'); // Added POST route
+    Route::get('products/import/template', [ProductController::class, 'downloadTemplate'])->name('products.import.template');        // Categories (view only)
+        Route::get('categories', [SectorCategoryController::class, 'index'])->name('categories.index');
+
+        // Inventory (view only)
+        Route::prefix('inventory')->name('inventory.')->group(function () {
             Route::get('/', [SalesController::class, 'index'])->name('index');
-            
-            // नयाँ 'Add Stock' रुट (अघिको त्रुटी सच्याइएको)
-            Route::get('/add', [App\Http\Controllers\Admin\InventoryMovementController::class, 'createAddStock'])
-                ->name('add');
-
-            // Add Stock Routes
-            Route::get('/add-stock/{product}', [StockController::class, 'create'])->name('create');
-            Route::post('/store/{product}', [StockController::class, 'store'])->name('store');
-
-            // Adjustment Routes
-            Route::get('/adjust/{product}', [InventoryMovementController::class, 'create'])->name('adjust.create');
-            Route::post('/adjust/{product}', [InventoryMovementController::class, 'store'])->name('adjust.store');
-
-            // Low Stock Management
             Route::get('/low-stock', [InventoryMovementController::class, 'manageLowStock'])->name('manageLowStock');
             Route::get('/low-stock-manager', [InventoryMovementController::class, 'manageLowStock'])->name('low_stock_manager');
         });
 
-        // --- REPLACED INVOICE MANAGEMENT BLOCK ---
-Route::prefix('invoices')->name('invoices.')->group(function () {
-    Route::get('/', [InvoiceController::class, 'index'])->name('index');
-    Route::get('/create', [InvoiceController::class, 'create'])->name('create');
-    Route::post('/store', [InvoiceController::class, 'store'])->name('store');
-    
-    // This is the route for viewing detailed invoice items
-    Route::get('/{invoice}', [InvoiceController::class, 'show'])->name('show');
-    
-    Route::get('/print/{invoice}', [InvoiceController::class, 'printInvoicePDF'])->name('print');
-    Route::get('/view/{invoice}', [InvoiceController::class, 'showWebInvoice'])->name('show_web');
-    Route::post('/generate-link/{invoice}', [InvoiceController::class, 'generateShareLink'])->name('generate_link');
-    Route::get('/generate-image/{id}', [InvoiceController::class, 'generateShareableImage'])->name('generate_image');
-});
-
-        // Report & Customer Search Routes
-        Route::prefix('reports')->name('reports.')->middleware(['role:admin|accountant'])->group(function () {
-            // Report पेज (जहाँ filter र list हुन्छ)
-            Route::get('/', [App\Http\Controllers\Admin\ReportController::class, 'index'])->name('index');
+        // Invoice Management (view only)
+        Route::prefix('invoices')->name('invoices.')->group(function () {
+            Route::get('/', [InvoiceController::class, 'index'])->name('index');
+            Route::get('/{invoice}', [InvoiceController::class, 'show'])->name('show');
+            Route::get('/print/{invoice}', [InvoiceController::class, 'printInvoicePDF'])->name('print');
+            Route::get('/view/{invoice}', [InvoiceController::class, 'showWebInvoice'])->name('show_web');
         });
 
-   // Sales & POS
-Route::prefix('sales')->name('sales.')->group(function () {
-    Route::get('/dashboard', [SalesDashboardController::class, 'index'])->name('dashboard');
-    Route::get('/create', [SalesController::class, 'create'])->name('create');
-    Route::post('/pos', [SalesController::class, 'store'])->name('pos.store');
-    Route::get('/pos/{product?}', [SalesController::class, 'createSale'])->name('pos.create');
-    Route::get('/analysis', [SalesController::class, 'itemAnalysis'])->name('item-analysis');
-    
-    // यो नयाँ रुट थप्नुहोस् (फोन नम्बरबाट लेजर हेर्न)
-    Route::get('/ledger-by-phone/{phone}', [CustomerLedgerController::class, 'showByPhone'])->name('customer-ledger-by-phone');
-    
-    // पुराना रुटहरू (जुन तपाईंले प्रयोग गरिरहनुभएको छ)
-    Route::get('/ledger/{customerId}', [CustomerLedgerController::class, 'showCustomerLedger'])->name('customer-ledger');
-    Route::get('/customer/{id}', [CustomerLedgerController::class, 'showCustomerLedger'])->name('customer-ledger-old');
-    Route::post('/{id}/update-payment', [SalesController::class, 'updatePayment'])->name('update-payment');
-    
-    Route::get('/logs', [InventoryMovementController::class, 'salesIndex'])->name('index');
-    Route::get('/invoices/print/{invoice}', [InvoiceController::class, 'printInvoicePDF'])->name('invoices.print');
-});
-        // Cheques Management
+        // Reports & Customer Search Routes (view only)
+        Route::prefix('reports')->name('reports.')->group(function () {
+            Route::get('/', [App\Http\Controllers\Admin\ReportController::class, 'index'])->name('index');
+            Route::get('/cash-flow', [App\Http\Controllers\Admin\ReportController::class, 'cashFlowReport'])->name('cash-flow');
+            Route::get('/stock-movement', [App\Http\Controllers\Admin\ReportController::class, 'stockMovementReport'])->name('stock-movement');
+        });
+
+        // Sales & POS (view only)
+        Route::prefix('sales')->name('sales.')->group(function () {
+            Route::get('/dashboard', [SalesDashboardController::class, 'index'])->name('dashboard');
+            Route::get('/analysis', [SalesController::class, 'itemAnalysis'])->name('item-analysis');
+            Route::get('/ledger-by-phone/{phone}', [CustomerLedgerController::class, 'showByPhone'])->name('customer-ledger-by-phone');
+            Route::get('/ledger/{customerId}', [CustomerLedgerController::class, 'showCustomerLedger'])->name('customer-ledger');
+            Route::get('/customer/{id}', [CustomerLedgerController::class, 'showCustomerLedger'])->name('customer-ledger-old');
+            Route::get('/logs', [InventoryMovementController::class, 'salesIndex'])->name('index');
+            Route::get('/invoices/print/{invoice}', [InvoiceController::class, 'printInvoicePDF'])->name('invoices.print');
+        });
+
+        // Cheques Management (view only)
         Route::prefix('cheques')->name('cheques.')->group(function () {
             Route::get('/', [ChequeController::class, 'index'])->name('index');
+        });
+
+        // Purchases Management (view only)
+        Route::prefix('purchases')->name('purchases.')->group(function () {
+            Route::get('/dashboard', [PurchaseDashboardController::class, 'index'])->name('dashboard');
+            Route::get('/{purchase}', [PurchaseDashboardController::class, 'show'])->name('show');
+        });
+
+        // Release notes (view only)
+        Route::prefix('release-notes')->name('release-notes.')->group(function () {
+            Route::get('/', function () {
+                return view('admin.release-notes');
+            })->name('index');
+        });
+
+        // Returns & Wastage (view only)
+        Route::get('returns-wastage', [WastageController::class, 'index'])->name('wastage.index');
+        Route::get('returns-wastage/{id}', [WastageController::class, 'show'])->name('wastage.show');
+
+        // Customer Ledger (view only)
+        Route::get('/customer-ledger/{id}', [CustomerLedgerController::class, 'show'])->name('ledger.show');
+
+        // User Profile (both can manage their own profile)
+        Route::prefix('profile')->name('profile.')->group(function () {
+            Route::get('/', [App\Http\Controllers\ProfileController::class, 'edit'])->name('edit');
+            Route::patch('/update', [App\Http\Controllers\ProfileController::class, 'update'])->name('update');
+            Route::get('/change-password', [App\Http\Controllers\ProfileController::class, 'passwordEdit'])->name('change');
+            Route::patch('/update-password', [App\Http\Controllers\ProfileController::class, 'passwordUpdate'])->name('update-password');
+        });
+
+        // User Guide (view only)
+        Route::get('/user-guide', [App\Http\Controllers\Admin\DashboardController::class, 'guide'])->name('user-guide');
+
+        // Backup Management (view only)
+        Route::prefix('backups')->name('backups.')->group(function () {
+            Route::get('/', [BackupController::class, 'index'])->name('index');
+        });
+
+        // Staff & Roles Management (view only)
+        Route::get('staff', [StaffController::class, 'index'])->name('staff.index');
+        Route::get('staff/{staff}', [StaffController::class, 'show'])->name('staff.show'); // Assuming a show method for staff
+        Route::get('roles', [RoleController::class, 'index'])->name('roles.index');
+        Route::get('roles/{role}', [RoleController::class, 'show'])->name('roles.show'); // Assuming a show method for roles
+
+        // Activity Logs (view only)
+        Route::get('logs', [ActivityLogController::class, 'index'])->name('logs.index');
+        Route::get('logs/{id}', [ActivityLogController::class, 'show'])->name('logs.show');
+    });
+
+    // --- Routes accessible to Admin ONLY (create, edit, delete, and specific management tasks) ---
+    Route::middleware(['role:admin'])->group(function () {
+        // Customers (manage)
+        Route::get('customers/create', [CustomerController::class, 'create'])->name('customers.create');
+        Route::post('customers', [CustomerController::class, 'store'])->name('customers.store');
+        Route::get('customers/{customer}/edit', [CustomerController::class, 'edit'])->name('customers.edit');
+        Route::put('customers/{customer}', [CustomerController::class, 'update'])->name('customers.update');
+        Route::delete('customers/{customer}', [CustomerController::class, 'destroy'])->name('customers.destroy');
+
+        // Products (manage)
+        Route::get('products/create', [AdminProductController::class, 'create'])->name('products.create');
+        Route::post('products', [AdminProductController::class, 'store'])->name('products.store');
+        Route::get('products/{product}/edit', [AdminProductController::class, 'edit'])->name('products.edit');
+        Route::put('products/{product}', [AdminProductController::class, 'update'])->name('products.update');
+        Route::delete('products/{product}', [AdminProductController::class, 'destroy'])->name('products.destroy');
+        Route::get('products/import', [AdminProductController::class, 'importForm'])->name('products.import.form');
+        Route::post('products/import', [AdminProductController::class, 'import'])->name('products.import');
+
+        // Categories (manage)
+        Route::post('categories', [SectorCategoryController::class, 'store'])->name('categories.store');
+        Route::get('categories/{category}/edit', [SectorCategoryController::class, 'edit'])->name('categories.edit');
+        Route::put('categories/{category}', [SectorCategoryController::class, 'update'])->name('categories.update');
+        Route::delete('categories/{category}', [SectorCategoryController::class, 'destroy'])->name('categories.destroy');
+
+        // Inventory Management (manage)
+        Route::prefix('inventory')->name('inventory.')->group(function () {
+            Route::get('/add', [App\Http\Controllers\Admin\InventoryMovementController::class, 'createAddStock'])->name('add');
+            Route::get('/add-stock/{product}', [StockController::class, 'create'])->name('create');
+            Route::post('/store/{product}', [StockController::class, 'store'])->name('store');
+            Route::get('/adjust/{product}', [InventoryMovementController::class, 'create'])->name('adjust.create');
+            Route::post('/adjust/{product}', [InventoryMovementController::class, 'store'])->name('adjust.store');
+        });
+
+        // Invoice Management (manage)
+        Route::prefix('invoices')->name('invoices.')->group(function () {
+            Route::get('/create', [InvoiceController::class, 'create'])->name('create');
+            Route::post('/store', [InvoiceController::class, 'store'])->name('store');
+            Route::post('/generate-link/{invoice}', [InvoiceController::class, 'generateShareLink'])->name('generate_link');
+            Route::get('/generate-image/{id}', [InvoiceController::class, 'generateShareableImage'])->name('generate_image');
+        });
+
+        // Sales & POS (manage)
+        Route::prefix('sales')->name('sales.')->group(function () {
+            Route::get('/create', [SalesController::class, 'create'])->name('create');
+            Route::post('/pos', [SalesController::class, 'store'])->name('pos.store');
+            Route::get('/pos/{product?}', [SalesController::class, 'createSale'])->name('pos.create');
+            Route::post('/{id}/update-payment', [SalesController::class, 'updatePayment'])->name('update-payment');
+        });
+
+        // Cheques Management (manage)
+        Route::prefix('cheques')->name('cheques.')->group(function () {
             Route::get('/create', [ChequeController::class, 'create'])->name('create');
             Route::post('/', [ChequeController::class, 'store'])->name('store');
             Route::get('/trigger-reminders', [ChequeController::class, 'sendMaturityEmail'])->name('send_reminders');
         });
 
-        // Purchases Management
+        // Purchases Management (manage)
         Route::prefix('purchases')->name('purchases.')->group(function () {
-            Route::get('/dashboard', [PurchaseDashboardController::class, 'index'])->name('dashboard');
             Route::get('/create', [PurchaseDashboardController::class, 'create'])->name('create');
             Route::post('/store', [App\Http\Controllers\Admin\InventoryMovementController::class, 'storeAddStock'])->name('store');
-            Route::get('/{purchase}', [PurchaseDashboardController::class, 'show'])->name('show');
             Route::get('/edit/{purchase}', [PurchaseDashboardController::class, 'edit'])->name('edit');
             Route::post('/update/{purchase}', [PurchaseDashboardController::class, 'update'])->name('update');
             Route::delete('/destroy/{purchase}', [PurchaseDashboardController::class, 'destroy'])->name('destroy');
         });
-        // In routes/web.php
-Route::prefix('release-notes')->name('release-notes.')->group(function () {
-    // Instead of pointing to a controller, return the view directly
-    Route::get('/', function () {
-        return view('admin.release-notes');
-    })->name('index');
-});
 
-        // Returns & Wastage
-        Route::get('returns-wastage', [WastageController::class, 'index'])->name('wastage.index');
+        // Returns & Wastage (manage)
         Route::get('returns-wastage/create', [WastageController::class, 'create'])->name('wastage.create');
         Route::post('returns-wastage', [WastageController::class, 'store'])->name('wastage.store');
-        Route::get('returns-wastage/{id}', [WastageController::class, 'show'])->name('wastage.show');
-// --- यहाँ राख्नुहोस् (यो तपाईंको रुट हो) ---
-        // Customer Ledger (यो लाइन तपाईंको फाइलमा छ, यसलाई केही नगर्नुहोस्)
-        Route::get('/customer-ledger/{id}', [CustomerLedgerController::class, 'show'])->name('ledger.show');
+
+        // Customer Ledger (manage payments)
         Route::post('/customer-ledger/{id}/payment', [CustomerLedgerController::class, 'storePayment'])->name('payments.store');
-        // ... तपाईंको बाँकी रुटहरू भन्दा माथि वा admin ग्रुप भित्र ...
-Route::prefix('profile')->name('profile.')->middleware(['auth'])->group(function () {
-    Route::get('/', [App\Http\Controllers\ProfileController::class, 'edit'])->name('edit');
-    Route::patch('/update', [App\Http\Controllers\ProfileController::class, 'update'])->name('update');
-    Route::get('/change-password', [App\Http\Controllers\ProfileController::class, 'passwordEdit'])->name('change');
-    Route::patch('/update-password', [App\Http\Controllers\ProfileController::class, 'passwordUpdate'])->name('update-password');
-});
 
-// 'User Guide' को लागि (यदि तपाईंको ड्यासबोर्ड भित्रै छ भने)
-Route::get('/user-guide', [App\Http\Controllers\Admin\DashboardController::class, 'guide'])->name('user-guide');
-    });
-
-    // --- ROLE: ADMIN only (संवेदनशील पहुँच) ---
-    Route::middleware(['role:admin'])->group(function () {
-        
-        // Backup Management
+        // Backup Management (manage)
         Route::prefix('backups')->name('backups.')->group(function () {
-            Route::get('/', [BackupController::class, 'index'])->name('index');
             Route::post('/', [BackupController::class, 'store'])->name('store');
             Route::get('/download/{filename}', [BackupController::class, 'download'])->name('download');
             Route::delete('/destroy/{filename}', [BackupController::class, 'destroy'])->name('destroy');
         });
 
-        // Staff & Roles Management
-        Route::resource('staff', StaffController::class);
-        Route::resource('roles', RoleController::class);
-
-        // Activity Logs
-        Route::get('logs', [ActivityLogController::class, 'index'])->name('logs.index');
-        Route::get('logs/{id}', [ActivityLogController::class, 'show'])->name('logs.show');
-
-        // Debugging routes (Development only)
-        Route::get('/debug-mail', function () {
-            try {
-                \Mail::raw('यो एक टेस्ट ईमेल हो।', function ($message) {
-                    $message->to('gaihrenirmal2021@gmail.com')->subject('Test Email');
-                });
-                return "ईमेल सफल भयो!";
-            } catch (\Exception $e) {
-                return "एरर आयो: " . $e->getMessage();
-            }
-        });
-
-        Route::get('/test-notification', function () {
-            \OneSignal::sendNotificationToAll(
-                "Test Notification: Yo OneSignal ko test ho!",
-                null, null, null, null,
-                "Deurali Chemicals System"
-            );
-            return "Notification pathayo! Check your browser.";
-        });
+        // Staff & Roles Management (manage)
+        Route::get('staff/create', [StaffController::class, 'create'])->name('staff.create');
+        Route::post('staff', [StaffController::class, 'store'])->name('staff.store');
+        Route::get('staff/{staff}/edit', [StaffController::class, 'edit'])->name('staff.edit');
+        Route::put('staff/{staff}', [StaffController::class, 'update'])->name('staff.update');
+        Route::delete('staff/{staff}', [StaffController::class, 'destroy'])->name('staff.destroy');
+        
+        // Explicitly define CUD routes for roles
+        Route::get('roles/create', [RoleController::class, 'create'])->name('roles.create');
+        Route::post('roles', [RoleController::class, 'store'])->name('roles.store');
+        Route::get('roles/{role}/edit', [RoleController::class, 'edit'])->name('roles.edit');
+        Route::put('roles/{role}', [RoleController::class, 'update'])->name('roles.update');
+        Route::delete('roles/{role}', [RoleController::class, 'destroy'])->name('roles.destroy');
     });
 });

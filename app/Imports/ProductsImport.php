@@ -3,6 +3,7 @@
 namespace App\Imports;
 
 use App\Models\Product;
+use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithValidation;
@@ -20,18 +21,18 @@ class ProductsImport implements ToModel, WithHeadingRow, WithValidation, SkipsOn
     public int $updatedCount = 0;
 
     /**
-     * WithHeadingRow turns your file's header "Purchase Cost" into the
-     * array key 'purchase_cost', "Alert Stock Level" into 'alert_stock_level', etc.
+     * @param array $row
+     * @return \Illuminate\Database\Eloquent\Model|null
      */
     public function model(array $row)
     {
+        // Debugging: Log the row data to storage/logs/laravel.log
+        Log::info('Processing row:', $row);
+
         if (empty($row['name'])) {
             return null;
         }
 
-        // Upsert by name since there's no SKU column in this schema.
-        // If you'd rather always insert new rows, replace this block with:
-        //   $product = new Product(); $existed = false;
         $product = Product::firstOrNew(['name' => $row['name']]);
         $existed = $product->exists;
 
@@ -39,18 +40,22 @@ class ProductsImport implements ToModel, WithHeadingRow, WithValidation, SkipsOn
         $product->category           = $row['category'] ?? $product->category;
         $product->purchase_cost      = $row['purchase_cost'] ?? $product->purchase_cost ?? 0;
         $product->selling_price      = $row['selling_price'] ?? $product->selling_price ?? 0;
-        $product->inventory_unit     = $row['inventory_unit'] ?? $product->inventory_unit;
+        $product->inventory_unit     = $row['inventory_unit'] ?? $product->inventory_unit ?? 'pcs';
         $product->initial_stock      = $row['initial_stock'] ?? $product->initial_stock ?? 0;
         $product->stock              = $row['current_stock'] ?? $row['stock'] ?? $product->stock ?? 0;
         $product->alert_stock_level  = $row['alert_stock_level'] ?? $product->alert_stock_level ?? 0;
+        $product->alert_sent         = false;
 
         $product->save();
 
         $existed ? $this->updatedCount++ : $this->createdCount++;
 
-        return null;
+        return $product;
     }
 
+    /**
+     * @return array
+     */
     public function rules(): array
     {
         return [
@@ -59,13 +64,6 @@ class ProductsImport implements ToModel, WithHeadingRow, WithValidation, SkipsOn
             'selling_price'     => 'nullable|numeric|min:0',
             'initial_stock'     => 'nullable|integer|min:0',
             'alert_stock_level' => 'nullable|integer|min:0',
-        ];
-    }
-
-    public function customValidationMessages()
-    {
-        return [
-            'name.required' => 'The Name column is required on every row.',
         ];
     }
 }
