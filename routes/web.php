@@ -7,9 +7,9 @@ use App\Exports\ProductsExport;
 use App\Http\Controllers\Admin\{
     DashboardController, CustomerController, ProductController as AdminProductController,
     SectorCategoryController, StockController, InventoryMovementController,
-    InvoiceController, ChequeController, SalesController, BackupController,
-    WastageController, SalesDashboardController, CustomerLedgerController,
-    StaffController,ProductController,RoleController, PurchaseDashboardController, ActivityLogController
+    InvoiceController, ChequeController, SalesController, BackupController, WastageController,
+    SalesDashboardController, CustomerLedgerController, StaffController, RoleController,
+    PurchaseDashboardController, ActivityLogController
 };
 
 
@@ -36,26 +36,125 @@ if (file_exists(__DIR__.'/auth.php')) {
 
 // 3. SECURE ADMIN MATRIX (Auth & verified users only)
 Route::middleware(['web', 'auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
-    
+
+    // NOTE ON ORDERING:
+    // The "admin only" (create/store/edit/update/destroy) block is registered
+    // BEFORE the "admin|accountant" (index/show) block on purpose.
+    // Laravel matches routes in registration order, and literal segments like
+    // "products/create" must be registered before a wildcard route such as
+    // "products/{product}" — otherwise the wildcard swallows "create" as if
+    // it were the {product} parameter and calls show() instead of create().
+
+    // --- Routes accessible to Admin ONLY (create, edit, delete, and specific management tasks) ---
+    Route::middleware(['role:admin'])->group(function () {
+        // Customers (manage)
+        Route::get('customers/create', [CustomerController::class, 'create'])->name('customers.create');
+        Route::post('customers', [CustomerController::class, 'store'])->name('customers.store');
+        Route::get('customers/{customer}/edit', [CustomerController::class, 'edit'])->name('customers.edit');
+        Route::put('customers/{customer}', [CustomerController::class, 'update'])->name('customers.update');
+        Route::delete('customers/{customer}', [CustomerController::class, 'destroy'])->name('customers.destroy');
+
+        // Products (manage)
+        Route::get('products/create', [AdminProductController::class, 'create'])->name('products.create');
+        Route::post('products', [AdminProductController::class, 'store'])->name('products.store');
+        Route::get('products/{product}/edit', [AdminProductController::class, 'edit'])->name('products.edit');
+        Route::put('products/{product}', [AdminProductController::class, 'update'])->name('products.update');
+        Route::delete('products/{product}', [AdminProductController::class, 'destroy'])->name('products.destroy');
+        // Product Import/Export routes
+        Route::get('/products/export/{type}', [AdminProductController::class, 'export'])->name('products.export');
+        Route::get('products/import', [AdminProductController::class, 'importForm'])->name('products.import.form');
+        Route::post('products/import', [AdminProductController::class, 'import'])->name('products.import');
+        Route::get('products/import/template', [AdminProductController::class, 'importTemplate'])->name('products.import.template');
+
+        // Categories (manage)
+        Route::post('categories', [SectorCategoryController::class, 'store'])->name('categories.store');
+        Route::get('categories/{category}/edit', [SectorCategoryController::class, 'edit'])->name('categories.edit');
+        Route::put('categories/{category}', [SectorCategoryController::class, 'update'])->name('categories.update');
+        Route::delete('categories/{category}', [SectorCategoryController::class, 'destroy'])->name('categories.destroy');
+
+        // Inventory Management (manage)
+        Route::prefix('inventory')->name('inventory.')->group(function () {
+            Route::get('/add', [App\Http\Controllers\Admin\InventoryMovementController::class, 'createAddStock'])->name('add');
+            Route::get('/add-stock/{product}', [StockController::class, 'create'])->name('create');
+            Route::post('/store/{product}', [StockController::class, 'store'])->name('store');
+            Route::get('/adjust/{product}', [InventoryMovementController::class, 'create'])->name('adjust.create');
+            Route::post('/adjust/{product}', [InventoryMovementController::class, 'store'])->name('adjust.store');
+        });
+
+        // Invoice Management (manage)
+        Route::prefix('invoices')->name('invoices.')->group(function () {
+            Route::get('/create', [InvoiceController::class, 'create'])->name('create');
+            Route::post('/store', [InvoiceController::class, 'store'])->name('store');
+            Route::post('/generate-link/{invoice}', [InvoiceController::class, 'generateShareLink'])->name('generate_link');
+            Route::get('/generate-image/{id}', [InvoiceController::class, 'generateShareableImage'])->name('generate_image');
+        });
+
+        // Sales & POS (manage)
+        Route::prefix('sales')->name('sales.')->group(function () {
+            Route::get('/create', [SalesController::class, 'create'])->name('create');
+            Route::post('/pos', [SalesController::class, 'store'])->name('pos.store');
+            Route::get('/pos/{product?}', [SalesController::class, 'createSale'])->name('pos.create');
+            Route::post('/{id}/update-payment', [SalesController::class, 'updatePayment'])->name('update-payment');
+        });
+
+        // Cheques Management (manage)
+        Route::prefix('cheques')->name('cheques.')->group(function () {
+            Route::get('/create', [ChequeController::class, 'create'])->name('create');
+            Route::post('/', [ChequeController::class, 'store'])->name('store');
+            Route::get('/trigger-reminders', [ChequeController::class, 'sendMaturityEmail'])->name('send_reminders');
+        });
+
+        // Purchases Management (manage)
+        Route::prefix('purchases')->name('purchases.')->group(function () {
+            Route::get('/create', [PurchaseDashboardController::class, 'create'])->name('create');
+            Route::post('/store', [App\Http\Controllers\Admin\InventoryMovementController::class, 'storeAddStock'])->name('store');
+            Route::get('/edit/{purchase}', [PurchaseDashboardController::class, 'edit'])->name('edit');
+            Route::post('/update/{purchase}', [PurchaseDashboardController::class, 'update'])->name('update');
+            Route::delete('/destroy/{purchase}', [PurchaseDashboardController::class, 'destroy'])->name('destroy');
+        });
+
+        // Returns & Wastage (manage)
+        Route::get('returns-wastage/create', [WastageController::class, 'create'])->name('wastage.create');
+        Route::post('returns-wastage', [WastageController::class, 'store'])->name('wastage.store');
+
+        // Customer Ledger (manage payments)
+        Route::post('/customer-ledger/{id}/payment', [CustomerLedgerController::class, 'storePayment'])->name('payments.store');
+
+        // Backup Management (manage)
+        Route::prefix('backups')->name('backups.')->group(function () {
+            Route::post('/', [BackupController::class, 'store'])->name('store');
+            Route::get('/download/{filename}', [BackupController::class, 'download'])->name('download');
+            Route::delete('/destroy/{filename}', [BackupController::class, 'destroy'])->name('destroy');
+        });
+
+        // Staff & Roles Management (manage)
+        Route::get('staff/create', [StaffController::class, 'create'])->name('staff.create');
+        Route::post('staff', [StaffController::class, 'store'])->name('staff.store');
+        Route::get('staff/{staff}/edit', [StaffController::class, 'edit'])->name('staff.edit');
+        Route::put('staff/{staff}', [StaffController::class, 'update'])->name('staff.update');
+        Route::delete('staff/{staff}', [StaffController::class, 'destroy'])->name('staff.destroy');
+
+        // Explicitly define CUD routes for roles
+        Route::get('roles/create', [RoleController::class, 'create'])->name('roles.create');
+        Route::post('roles', [RoleController::class, 'store'])->name('roles.store');
+        Route::get('roles/{role}/edit', [RoleController::class, 'edit'])->name('roles.edit');
+        Route::put('roles/{role}', [RoleController::class, 'update'])->name('roles.update');
+        Route::delete('roles/{role}', [RoleController::class, 'destroy'])->name('roles.destroy');
+    });
+
     // --- Routes accessible to both Admin and Accountant (primarily view/read operations) ---
     Route::middleware(['role:admin|accountant'])->group(function () {
-    Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+        Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
         // Customers (view only)
         Route::get('customers', [CustomerController::class, 'index'])->name('customers.index');
         Route::get('customers/{customer}', [CustomerController::class, 'show'])->name('customers.show');
-        
+
         // Products (view only)
         Route::get('products', [AdminProductController::class, 'index'])->name('products.index');
         Route::get('products/{product}', [AdminProductController::class, 'show'])->name('products.show');
-        // Export route
-        Route::get('/products/export/{type}', [ProductController::class, 'export'])->name('products.export');
-    
-        // Add your import routes here as well
-Route::get('products/import', [ProductController::class, 'importForm'])->name('products.import.form');
-    Route::post('products/import', [ProductController::class, 'import'])->name('products.import'); // Added POST route
-    Route::get('products/import/template', [ProductController::class, 'downloadTemplate'])->name('products.import.template');        // Categories (view only)
+        // Categories (view only)
         Route::get('categories', [SectorCategoryController::class, 'index'])->name('categories.index');
 
         // Inventory (view only)
@@ -141,99 +240,5 @@ Route::get('products/import', [ProductController::class, 'importForm'])->name('p
         // Activity Logs (view only)
         Route::get('logs', [ActivityLogController::class, 'index'])->name('logs.index');
         Route::get('logs/{id}', [ActivityLogController::class, 'show'])->name('logs.show');
-    });
-
-    // --- Routes accessible to Admin ONLY (create, edit, delete, and specific management tasks) ---
-    Route::middleware(['role:admin'])->group(function () {
-        // Customers (manage)
-        Route::get('customers/create', [CustomerController::class, 'create'])->name('customers.create');
-        Route::post('customers', [CustomerController::class, 'store'])->name('customers.store');
-        Route::get('customers/{customer}/edit', [CustomerController::class, 'edit'])->name('customers.edit');
-        Route::put('customers/{customer}', [CustomerController::class, 'update'])->name('customers.update');
-        Route::delete('customers/{customer}', [CustomerController::class, 'destroy'])->name('customers.destroy');
-
-        // Products (manage)
-        Route::get('products/create', [AdminProductController::class, 'create'])->name('products.create');
-        Route::post('products', [AdminProductController::class, 'store'])->name('products.store');
-        Route::get('products/{product}/edit', [AdminProductController::class, 'edit'])->name('products.edit');
-        Route::put('products/{product}', [AdminProductController::class, 'update'])->name('products.update');
-        Route::delete('products/{product}', [AdminProductController::class, 'destroy'])->name('products.destroy');
-        Route::get('products/import', [AdminProductController::class, 'importForm'])->name('products.import.form');
-        Route::post('products/import', [AdminProductController::class, 'import'])->name('products.import');
-
-        // Categories (manage)
-        Route::post('categories', [SectorCategoryController::class, 'store'])->name('categories.store');
-        Route::get('categories/{category}/edit', [SectorCategoryController::class, 'edit'])->name('categories.edit');
-        Route::put('categories/{category}', [SectorCategoryController::class, 'update'])->name('categories.update');
-        Route::delete('categories/{category}', [SectorCategoryController::class, 'destroy'])->name('categories.destroy');
-
-        // Inventory Management (manage)
-        Route::prefix('inventory')->name('inventory.')->group(function () {
-            Route::get('/add', [App\Http\Controllers\Admin\InventoryMovementController::class, 'createAddStock'])->name('add');
-            Route::get('/add-stock/{product}', [StockController::class, 'create'])->name('create');
-            Route::post('/store/{product}', [StockController::class, 'store'])->name('store');
-            Route::get('/adjust/{product}', [InventoryMovementController::class, 'create'])->name('adjust.create');
-            Route::post('/adjust/{product}', [InventoryMovementController::class, 'store'])->name('adjust.store');
-        });
-
-        // Invoice Management (manage)
-        Route::prefix('invoices')->name('invoices.')->group(function () {
-            Route::get('/create', [InvoiceController::class, 'create'])->name('create');
-            Route::post('/store', [InvoiceController::class, 'store'])->name('store');
-            Route::post('/generate-link/{invoice}', [InvoiceController::class, 'generateShareLink'])->name('generate_link');
-            Route::get('/generate-image/{id}', [InvoiceController::class, 'generateShareableImage'])->name('generate_image');
-        });
-
-        // Sales & POS (manage)
-        Route::prefix('sales')->name('sales.')->group(function () {
-            Route::get('/create', [SalesController::class, 'create'])->name('create');
-            Route::post('/pos', [SalesController::class, 'store'])->name('pos.store');
-            Route::get('/pos/{product?}', [SalesController::class, 'createSale'])->name('pos.create');
-            Route::post('/{id}/update-payment', [SalesController::class, 'updatePayment'])->name('update-payment');
-        });
-
-        // Cheques Management (manage)
-        Route::prefix('cheques')->name('cheques.')->group(function () {
-            Route::get('/create', [ChequeController::class, 'create'])->name('create');
-            Route::post('/', [ChequeController::class, 'store'])->name('store');
-            Route::get('/trigger-reminders', [ChequeController::class, 'sendMaturityEmail'])->name('send_reminders');
-        });
-
-        // Purchases Management (manage)
-        Route::prefix('purchases')->name('purchases.')->group(function () {
-            Route::get('/create', [PurchaseDashboardController::class, 'create'])->name('create');
-            Route::post('/store', [App\Http\Controllers\Admin\InventoryMovementController::class, 'storeAddStock'])->name('store');
-            Route::get('/edit/{purchase}', [PurchaseDashboardController::class, 'edit'])->name('edit');
-            Route::post('/update/{purchase}', [PurchaseDashboardController::class, 'update'])->name('update');
-            Route::delete('/destroy/{purchase}', [PurchaseDashboardController::class, 'destroy'])->name('destroy');
-        });
-
-        // Returns & Wastage (manage)
-        Route::get('returns-wastage/create', [WastageController::class, 'create'])->name('wastage.create');
-        Route::post('returns-wastage', [WastageController::class, 'store'])->name('wastage.store');
-
-        // Customer Ledger (manage payments)
-        Route::post('/customer-ledger/{id}/payment', [CustomerLedgerController::class, 'storePayment'])->name('payments.store');
-
-        // Backup Management (manage)
-        Route::prefix('backups')->name('backups.')->group(function () {
-            Route::post('/', [BackupController::class, 'store'])->name('store');
-            Route::get('/download/{filename}', [BackupController::class, 'download'])->name('download');
-            Route::delete('/destroy/{filename}', [BackupController::class, 'destroy'])->name('destroy');
-        });
-
-        // Staff & Roles Management (manage)
-        Route::get('staff/create', [StaffController::class, 'create'])->name('staff.create');
-        Route::post('staff', [StaffController::class, 'store'])->name('staff.store');
-        Route::get('staff/{staff}/edit', [StaffController::class, 'edit'])->name('staff.edit');
-        Route::put('staff/{staff}', [StaffController::class, 'update'])->name('staff.update');
-        Route::delete('staff/{staff}', [StaffController::class, 'destroy'])->name('staff.destroy');
-        
-        // Explicitly define CUD routes for roles
-        Route::get('roles/create', [RoleController::class, 'create'])->name('roles.create');
-        Route::post('roles', [RoleController::class, 'store'])->name('roles.store');
-        Route::get('roles/{role}/edit', [RoleController::class, 'edit'])->name('roles.edit');
-        Route::put('roles/{role}', [RoleController::class, 'update'])->name('roles.update');
-        Route::delete('roles/{role}', [RoleController::class, 'destroy'])->name('roles.destroy');
     });
 });
