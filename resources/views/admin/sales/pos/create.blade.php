@@ -35,7 +35,7 @@
             @php $isOutOfStock = $product->initial_stock <= 0; @endphp
             <div class="product-card bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:border-blue-500
                         hover:shadow-md transition-all cursor-pointer relative overflow-hidden"
-                        hover:shadow-md transition-all cursor-pointer relative overflow-hidden {{ $isOutOfStock ? 'opacity-50 cursor-not-allowed pointer-events-none' : '' }}"
+                         {{ $isOutOfStock ? 'opacity-50 cursor-not-allowed pointer-events-none' : '' }}"
                 data-id="{{ $product->id }}" data-name="{{ $product->name }}" data-price="{{ $product->selling_price }}"
                 data-stock="{{ $product->initial_stock }}" data-unit="{{ $product->inventory_unit }}"
                 data-category="{{ strtolower($product->category) }}">
@@ -120,17 +120,22 @@
 
             {{-- 1. Customer --}}
             <div class="space-y-1">
-                <label class="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">1. Customer
-                    Selection</label>
-                <select id="customer-select"
-                    class="w-full px-3 py-1.5 border border-slate-200 text-xs rounded-md bg-white text-slate-700 focus:outline-none focus:border-blue-500">
-                    @foreach($customers as $customer)
-                    <option value="{{ $customer->id }}" {{ $customer->name == 'Walk-in Customer' ? 'selected' : '' }}>
-                        {{ $customer->name }} ({{ $customer->phone_number ?? 'No Phone' }})
-                    </option>
-                    @endforeach
-                </select>
-            </div>
+    <label class="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">1. Customer Selection</label>
+    <select id="customer-select"
+        class="w-full px-3 py-1.5 border border-slate-200 text-xs rounded-md bg-white text-slate-700 focus:outline-none focus:border-blue-500">
+        
+        <!-- The placeholder option -->
+        <option value="" disabled {{ !isset($selectedCustomer) ? 'selected' : '' }}>
+            Select a customer
+        </option>
+
+        @foreach($customers as $customer)
+            <option value="{{ $customer->id }}" {{ $customer->name == 'Walk-in Customer' ? 'selected' : '' }}>
+                {{ $customer->name }} ({{ $customer->phone_number ?? 'No Phone' }})
+            </option>
+        @endforeach
+    </select>
+</div>
 
             {{-- 2. Payment Method --}}
             <div class="space-y-1">
@@ -393,15 +398,24 @@ document.addEventListener('DOMContentLoaded', function () {
             
             const existing = cart.find(i => i.id === id);
             if (existing) {
-                if (existing.quantity_kg >= stock) { return; }
-                existing.quantity_kg++;
+                const currentTotalWeight = parseFloat(existing.quantity_kg) + (parseFloat(existing.quantity_gm) / 1000);
+                if (currentTotalWeight + 1 > stock) { // Check if adding 1kg exceeds stock
+                    alert(`Cannot add more. Only ${stock} ${unit} available for ${name}.`);
+                    return;
+                }
+                existing.quantity_kg++; // Increment by 1kg by default
             } else {
                 cart.push({ id, name, rate_per_kg: price, quantity_kg: 1, quantity_gm: 0, stock, unit });
             }
             renderCart();
+
+            // Visual feedback for product card
+            this.classList.add('bg-blue-100', 'border-blue-500');
+            setTimeout(() => {
+                this.classList.remove('bg-blue-100', 'border-blue-500');
+            }, 500); // Remove highlight after 0.5 seconds
         });
     });
-
     function renderCart() {
         cartScrollBox.querySelectorAll('.cart-item-row').forEach(r => r.remove());
         if (cart.length === 0) {
@@ -426,19 +440,25 @@ document.addEventListener('DOMContentLoaded', function () {
             row.className = 'cart-item-row py-2.5 flex items-center justify-between text-xs text-slate-700 border-b border-slate-100';
             row.innerHTML = `
                 <div class="max-w-[35%]">
-                    <span class="font-bold uppercase text-slate-800 block truncate">${item.name}</span>
-                    <span class="text-[10px] text-slate-400 font-mono">NPR ${item.rate_per_kg.toFixed(2)} / ${item.unit}</span>
+                    <span class="font-bold uppercase text-slate-800 block truncate text-sm">${item.name}</span>
+                    <span class="text-[10px] text-slate-500 font-mono">NPR ${item.rate_per_kg.toFixed(2)} / ${item.unit}</span>
                 </div>
-                <div class="flex items-center gap-1">
-                    <input type="number" class="qty-kg-field w-12 text-center font-mono py-0.5 border border-slate-200 rounded text-[11px]" data-index="${index}" min="0" value="${item.quantity_kg}">
+                <div class="flex items-center gap-0.5">
+                    <button type="button" class="qty-minus-btn text-slate-500 hover:text-slate-700 w-4 h-4 flex items-center justify-center" data-type="kg" data-index="${index}"><i class="fa-solid fa-minus text-[9px]"></i></button>
+                    <input type="number" class="qty-kg-field w-10 text-center font-mono py-0.5 border border-slate-200 rounded text-[11px]" data-index="${index}" min="0" value="${item.quantity_kg}">
+                    <button type="button" class="qty-plus-btn text-slate-500 hover:text-slate-700 w-4 h-4 flex items-center justify-center" data-type="kg" data-index="${index}"><i class="fa-solid fa-plus text-[9px]"></i></button>
                     <span class="text-[10px] text-slate-400">kg</span>
-                    <input type="number" class="qty-gm-field w-12 text-center font-mono py-0.5 border border-slate-200 rounded text-[11px]" data-index="${index}" min="0" max="999" value="${item.quantity_gm}">
+
+                    <button type="button" class="qty-minus-btn text-slate-500 hover:text-slate-700 w-4 h-4 flex items-center justify-center" data-type="gm" data-index="${index}"><i class="fa-solid fa-minus text-[9px]"></i></button>
+                    <input type="number" class="qty-gm-field w-10 text-center font-mono py-0.5 border border-slate-200 rounded text-[11px]" data-index="${index}" min="0" max="999" value="${item.quantity_gm}">
+                    <button type="button" class="qty-plus-btn text-slate-500 hover:text-slate-700 w-4 h-4 flex items-center justify-center" data-type="gm" data-index="${index}"><i class="fa-solid fa-plus text-[9px]"></i></button>
                     <span class="text-[10px] text-slate-400">gm</span>
                 </div>
                 <div class="text-right min-w-[80px]">
                     <span class="font-mono font-bold block text-slate-900 item-total-lbl">NPR 0.00</span>
                     <button type="button" class="item-remove text-[9px] text-red-500 uppercase font-semibold" data-index="${index}">Remove</button>
                 </div>`;
+
             cartScrollBox.appendChild(row);
         });
         cartBadgeCount.textContent = totalQtyDisplay.toFixed(2);
@@ -447,6 +467,44 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function bindCartRowEvents() {
+        cartScrollBox.querySelectorAll('.qty-minus-btn, .qty-plus-btn').forEach(button => {
+            button.addEventListener('click', function () {
+                const index = parseInt(this.dataset.index);
+                const type = this.dataset.type; // 'kg' or 'gm'
+                const item = cart[index];
+                let currentValue;
+                let inputField;
+
+                if (type === 'kg') {
+                    currentValue = parseFloat(item.quantity_kg);
+                    inputField = this.parentNode.querySelector('.qty-kg-field');
+                } else {
+                    currentValue = parseFloat(item.quantity_gm);
+                    inputField = this.parentNode.querySelector('.qty-gm-field');
+                }
+
+                let newValue = currentValue;
+                if (this.classList.contains('qty-plus-btn')) {
+                    newValue = currentValue + (type === 'kg' ? 1 : 100); // Increment by 1kg or 100gm
+                } else {
+                    newValue = currentValue - (type === 'kg' ? 1 : 100); // Decrement by 1kg or 100gm
+                }
+
+                if (type === 'gm') {
+                    newValue = Math.min(Math.max(0, newValue), 999); // Ensure gm is between 0 and 999
+                } else { // kg
+                    newValue = Math.max(0, newValue);
+                }
+
+                if (type === 'kg') {
+                    item.quantity_kg = newValue;
+                } else {
+                    item.quantity_gm = newValue;
+                }
+                inputField.value = newValue; // Update the input field directly
+                calculateTotals();
+            });
+        });
         cartScrollBox.querySelectorAll('.qty-kg-field').forEach(input => {
             input.addEventListener('input', function () {
                 cart[parseInt(this.dataset.index)].quantity_kg = parseFloat(this.value) || 0;

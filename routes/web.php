@@ -95,7 +95,7 @@ Route::middleware(['web', 'auth', 'verified'])->prefix('admin')->name('admin.')-
             Route::post('/pos', [SalesController::class, 'store'])->name('pos.store');
             Route::get('/pos/{product?}', [SalesController::class, 'createSale'])->name('pos.create');
             Route::post('/{id}/update-payment', [SalesController::class, 'updatePayment'])->name('update-payment');
-        });
+            Route::get('/all', [SalesController::class, 'index'])->name('all');        });
 
         // Cheques Management (manage)
         Route::prefix('cheques')->name('cheques.')->group(function () {

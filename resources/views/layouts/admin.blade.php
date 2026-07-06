@@ -285,6 +285,13 @@
                                 <i class="fa-solid fa-list mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Sales
                                 Register
                             </a>
+                            <!-- Added Link Below -->
+                            <a href="{{ route('admin.sales.all') }}"
+                                class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.sales.all') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
+                                <i
+                                    class="fa-solid fa-magnifying-glass mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Find
+                                All Sales
+                            </a>
                         </div>
                     </div>
 
@@ -514,7 +521,8 @@
                             @foreach($notifications['lowStock'] as $index => $product)
                             <a href="{{ route('admin.products.index') }}" @click="markAsRead('stock-{{$product->id}}')"
                                 class="block px-4 py-3 border-b border-slate-100 transition-all hover:bg-slate-50">
-                                <div class="flex items-start gap-3" :class="readItems.includes('stock-{{$product->id}}') ? 'opacity-50' : ''">
+                                <div class="flex items-start gap-3"
+                                    :class="readItems.includes('stock-{{$product->id}}') ? 'opacity-50' : ''">
                                     <div class="mt-0.5 bg-red-100 p-1.5 rounded-md text-red-600"><i
                                             class="fa-solid fa-box-open text-xs"></i></div>
                                     <div>
@@ -529,12 +537,14 @@
                             @foreach($notifications['cheques'] as $index => $cheque)
                             <a href="{{ route('admin.cheques.index') }}" @click="markAsRead('cheque-{{$cheque->id}}')"
                                 class="block px-4 py-3 border-b border-slate-100 transition-all hover:bg-slate-50">
-                                <div class="flex items-start gap-3" :class="readItems.includes('cheque-{{$cheque->id}}') ? 'opacity-50' : ''">
+                                <div class="flex items-start gap-3"
+                                    :class="readItems.includes('cheque-{{$cheque->id}}') ? 'opacity-50' : ''">
                                     <div class="mt-0.5 bg-blue-100 p-1.5 rounded-md text-blue-600"><i
                                             class="fa-solid fa-money-check text-xs"></i></div>
                                     <div>
                                         <p class="text-xs font-bold text-slate-800">Cheque Due Today</p>
-                                        <p class="text-[11px] text-slate-500 mt-0.5">Ref: {{ $cheque->cheque_no ?? 'N/A' }}</p>
+                                        <p class="text-[11px] text-slate-500 mt-0.5">Ref:
+                                            {{ $cheque->cheque_no ?? 'N/A' }}</p>
                                     </div>
                                 </div>
                             </a>
@@ -612,7 +622,9 @@
                         <a href="{{ route('admin.sales.create') }}"
                             class="flex h-14 w-16 flex-col items-center justify-center gap-1 rounded-md text-slate-600 transition-colors hover:bg-blue-50 hover:text-blue-700">
                             <i class="fa-solid fa-file-invoice text-lg"></i>
-                            <span class="text-[10px] font-medium leading-none">New Sale</span>
+                            <span class="text-[10px] font-medium leading-none">
+
+                            </span>
                         </a>
                         <a href="{{ route('admin.purchases.create') }}"
                             class="flex h-14 w-16 flex-col items-center justify-center gap-1 rounded-md text-slate-600 transition-colors hover:bg-blue-50 hover:text-blue-700">

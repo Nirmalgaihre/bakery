@@ -402,4 +402,10 @@ private function sendLowStockEmail($productName, $currentStock)
             Log::error("General Error: " . $e->getMessage());
         }
     }
+    public function all()
+{
+    // Your logic to fetch all sales
+    $sales = Sale::all();
+    return view('admin.sales.all', compact('sales'));
+}
 }
