@@ -66,12 +66,22 @@ Route::middleware(['web', 'auth', 'verified'])->prefix('admin')->name('admin.')-
         Route::post('products/import', [AdminProductController::class, 'import'])->name('products.import');
         Route::get('products/import/template', [AdminProductController::class, 'importTemplate'])->name('products.import.template');
 
-        // Categories (manage)
-        Route::post('categories', [SectorCategoryController::class, 'store'])->name('categories.store');
-        Route::get('categories/{category}/edit', [SectorCategoryController::class, 'edit'])->name('categories.edit');
-        Route::put('categories/{category}', [SectorCategoryController::class, 'update'])->name('categories.update');
-        Route::delete('categories/{category}', [SectorCategoryController::class, 'destroy'])->name('categories.destroy');
+       // ... inside the admin group (around line 35)
+        Route::middleware(['role:admin'])->group(function () {
+            
+            // ... existing routes ...
 
+            // Categories (manage)
+            Route::post('categories', [SectorCategoryController::class, 'store'])->name('categories.store');
+            Route::get('categories/{category}/edit', [SectorCategoryController::class, 'edit'])->name('categories.edit');
+            Route::put('categories/{category}', [SectorCategoryController::class, 'update'])->name('categories.update');
+            Route::delete('categories/{category}', [SectorCategoryController::class, 'destroy'])->name('categories.destroy');
+
+            // ADD IT HERE:
+            Route::get('trash', [App\Http\Controllers\Admin\TrashController::class, 'index'])->name('trash.index');
+
+            // ... existing routes ...
+        });
         // Inventory Management (manage)
         Route::prefix('inventory')->name('inventory.')->group(function () {
             Route::get('/add', [App\Http\Controllers\Admin\InventoryMovementController::class, 'createAddStock'])->name('add');

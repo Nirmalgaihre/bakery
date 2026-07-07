@@ -98,14 +98,25 @@ public function login(Request $request)
     public function showOtpForm() { return view('auth.otp'); }
 
     public function verifyOtp(Request $request)
-    {
-        if ($request->otp == session('otp') && now()->lt(session('otp_expires_at'))) {
-            Auth::login(User::where('email', session('email'))->first());
-            session()->forget(['otp', 'email', 'otp_expires_at']);
+{
+    // 1. Verify OTP and Expiration
+    if ($request->otp == session('otp') && session('otp_expires_at') && now()->lt(session('otp_expires_at'))) {
+        
+        // 2. Retrieve user using the correct session key 'otp_email'
+        $user = User::where('email', session('otp_email'))->first();
+
+        // 3. Ensure user exists before attempting login
+        if ($user) {
+            Auth::login($user);
+            session()->forget(['otp', 'otp_email', 'otp_expires_at']);
             return redirect('/admin/dashboard');
         }
-        return back()->withErrors(['otp' => 'Invalid or expired OTP.']);
     }
+    
+    return back()->withErrors(['otp' => 'Invalid or expired OTP.']);
+}
+
+
     public function showForgotPasswordForm() {
     return view('auth.forgot-password');
 }

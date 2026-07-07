@@ -382,6 +382,20 @@
                     </div>
                 </div>
             </div>
+            @if(auth()->check() && auth()->user()->role === 'admin')
+            <div class="pt-4 mt-2 border-t border-slate-800/60" x-data="{ ... }">
+                <div class="space-y-0.5">
+                </div>
+
+                <div class="space-y-0.5 mt-0.5">
+                    <a href="{{ route('admin.trash.index') }}"
+                        class="flex items-center px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->is('admin/trash*') ? 'text-white bg-red-900/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }}">
+                        <i class="fa-solid fa-trash-can mr-3 w-4 text-center text-sm text-slate-500"></i>
+                        Trash / Deleted
+                    </a>
+                </div>
+            </div>
+            @endif
 
             <!-- Admin Only -->
             @if(auth()->check() && auth()->user()->role === 'admin')

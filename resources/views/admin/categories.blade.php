@@ -6,7 +6,6 @@
 @section('content')
 <div class="max-w-5xl mx-auto">
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
         @can('manage_categories')
         <!-- Form Section -->
         <div class="md:col-span-1">
@@ -14,25 +13,31 @@
                 <h3 class="text-xs font-bold text-slate-700 uppercase mb-4">
                     {{ isset($editingCategory) ? 'Edit Category' : 'Add New Category' }}
                 </h3>
-                
-                <form action="{{ isset($editingCategory) ? route('admin.categories.update', $editingCategory->id) : route('admin.categories.store') }}" method="POST">
+
+                <form
+                    action="{{ isset($editingCategory) ? route('admin.categories.update', $editingCategory->id) : route('admin.categories.store') }}"
+                    method="POST">
                     @csrf
                     @if(isset($editingCategory)) @method('PUT') @endif
 
                     <div class="space-y-4">
                         <div>
-                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Category Name *</label>
-                            <input type="text" name="name" value="{{ old('name', $editingCategory->name ?? '') }}" 
-                                class="w-full text-sm p-2 border rounded border-slate-200 focus:border-blue-500 outline-none" required>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Category Name
+                                *</label>
+                            <input type="text" name="name" value="{{ old('name', $editingCategory->name ?? '') }}"
+                                class="w-full text-sm p-2 border rounded border-slate-200 focus:border-blue-500 outline-none"
+                                required>
                             @error('name') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                         </div>
-                        
+
                         <div class="flex gap-2">
-                            <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2 rounded transition-colors">
+                            <button type="submit"
+                                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2 rounded transition-colors">
                                 {{ isset($editingCategory) ? 'Update' : 'Save' }}
                             </button>
                             @if(isset($editingCategory))
-                                <a href="{{ route('admin.categories.index') }}" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded">Cancel</a>
+                            <a href="{{ route('admin.categories.index') }}"
+                                class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded">Cancel</a>
                             @endif
                         </div>
                     </div>
@@ -54,20 +59,30 @@
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         @forelse($categories as $category)
-                        <tr class="{{ (isset($editingCategory) && $editingCategory->id == $category->id) ? 'bg-blue-50' : '' }}">
+                        <tr
+                            class="{{ (isset($editingCategory) && $editingCategory->id == $category->id) ? 'bg-blue-50' : '' }}">
                             <td class="px-6 py-4 font-mono text-xs">{{ $category->id }}</td>
                             <td class="px-6 py-4 font-semibold text-slate-800">{{ $category->name }}</td>
                             <td class="px-6 py-4 text-right">
                                 @can('manage_categories')
-                                <a href="{{ route('admin.categories.edit', $category->id) }}" class="text-blue-600 hover:text-blue-800 text-xs font-bold uppercase">Edit</a>
+                                <a href="{{ route('admin.categories.edit', $category->id) }}"
+                                    class="text-blue-600 hover:text-blue-800 text-xs font-bold uppercase">Edit</a>
                                 @endcan
-                                {{-- Delete button would go here, also wrapped in @can('manage_categories') --}}
-                                {{-- <button type="button" class="text-red-600 hover:text-red-800 text-xs font-bold uppercase ml-2">Delete</button> --}}
+                                @can('manage_categories')
+                                <form action="{{ route('admin.categories.destroy', $category->id) }}" method="POST" class="inline-block ml-2" onsubmit="return confirm('Are you sure you want to delete this category? This action cannot be undone.');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit"
+                                        class="text-red-600 hover:text-red-800 text-xs font-bold uppercase">Delete</button>
+                                </form>
+                                @endcan
+
                             </td>
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="3" class="px-6 py-10 text-center text-slate-400 italic">No categories found.</td>
+                            <td colspan="3" class="px-6 py-10 text-center text-slate-400 italic">No categories found.
+                            </td>
                         </tr>
                         @endforelse
                     </tbody>

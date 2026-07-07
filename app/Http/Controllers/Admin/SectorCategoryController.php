@@ -12,10 +12,9 @@ class SectorCategoryController extends Controller
 {
     public function __construct()
     {
-        // Only admins can create, store, edit, or update categories.
-        $this->middleware('can:create,App\Models\SectorCategory')->only(['store']);
-        $this->middleware('can:update,category')->only(['edit', 'update']);
-                $this->middleware('auth'); 
+        // Authorization for create, store, edit, update, and destroy actions
+        // is already handled by the 'role:admin' middleware applied to the routes
+        // in web.php. No additional middleware is needed here for basic admin access.
     }
 
     /**
@@ -46,32 +45,43 @@ class SectorCategoryController extends Controller
         }
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
     public function edit($id) 
-    {
-        $categories = SectorCategory::all();
-        $editingCategory = SectorCategory::findOrFail($id);
-        return view('admin.categories', compact('categories', 'editingCategory'));
+{
+    // Fetch all categories for the table
+    $categories = SectorCategory::all();
+    // Find the specific category for the form
+    $editingCategory = SectorCategory::findOrFail($id);
+    
+    return view('admin.categories', compact('categories', 'editingCategory'));
+}
+
+public function update(Request $request, $id) 
+{
+    $category = SectorCategory::findOrFail($id);
+    
+    $request->validate([
+        'name' => "required|string|max:255|unique:sector_categories,name,{$id}"
+    ]);
+
+    try {
+        $category->update(['name' => $request->name]);
+        return redirect()->route('admin.categories.index')->with('success', 'Category updated successfully!');
+    } catch (\Exception $e) {
+        return redirect()->back()->with('error', 'Error updating category. Please try again.');
     }
+}
 
     /**
-     * Update the specified resource in storage.
+     * Remove the specified resource from storage.
      */
-    public function update(Request $request, $id) 
+    public function destroy($id)
     {
         $category = SectorCategory::findOrFail($id);
-        
-        $request->validate([
-            'name' => "required|string|max:255|unique:sector_categories,name,{$id}"
-        ]);
-
         try {
-            $category->update(['name' => $request->name]);
-            return redirect()->route('admin.categories.index')->with('success', 'Your changes have been saved successfully!');
+            $category->delete();
+            return redirect()->route('admin.categories.index')->with('success', 'Category deleted successfully!');
         } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'There was a problem updating your file. Please try again.');
+            return redirect()->back()->with('error', 'Error deleting category. Please try again.');
         }
     }
     
