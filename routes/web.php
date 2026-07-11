@@ -53,7 +53,8 @@ Route::middleware(['web', 'auth', 'verified'])->prefix('admin')->name('admin.')-
         Route::get('customers/{customer}/edit', [CustomerController::class, 'edit'])->name('customers.edit');
         Route::put('customers/{customer}', [CustomerController::class, 'update'])->name('customers.update');
         Route::delete('customers/{customer}', [CustomerController::class, 'destroy'])->name('customers.destroy');
-
+Route::get('customers/{customer}/monthly-summary', [CustomerController::class, 'monthlySummary'])->name('customers.monthly-summary');
+Route::get('customers/{customer}/month/{month}', [CustomerController::class, 'monthInvoices'])->name('customers.month-invoices');
         // Products (manage)
         Route::get('products/create', [AdminProductController::class, 'create'])->name('products.create');
         Route::post('products', [AdminProductController::class, 'store'])->name('products.store');
@@ -169,7 +170,8 @@ Route::middleware(['web', 'auth', 'verified'])->prefix('admin')->name('admin.')-
 
         // Inventory (view only)
         Route::prefix('inventory')->name('inventory.')->group(function () {
-            Route::get('/', [SalesController::class, 'index'])->name('index');
+            Route::get('/', [SalesController::class, 'showInventoryProducts'])->name('index'); 
+            Route::get('/position', [App\Http\Controllers\Admin\InventoryMovementController::class, 'stockPosition'])->name('position');
             Route::get('/low-stock', [InventoryMovementController::class, 'manageLowStock'])->name('manageLowStock');
             Route::get('/low-stock-manager', [InventoryMovementController::class, 'manageLowStock'])->name('low_stock_manager');
         });

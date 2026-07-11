@@ -3,204 +3,214 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Cheque;
-use App\Models\Customer;
-use App\Models\Invoice;
-use App\Models\InventoryAdjustment;
-use App\Models\InvoiceItem;
-use App\Models\Purchase;
-use App\Models\Product;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Carbon\Carbon;
+use App\Models\Invoice;
+use App\Models\Product;
+use App\Models\Customer;
+use App\Models\InventoryAdjustment; // Corrected model name
+use App\Models\Cheque;
+use App\Models\Purchase; // Assuming a Purchase model exists with 'purchase_date' and 'total_amount'
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
     public function index(Request $request)
     {
-        $year  = $request->input('year', date('Y'));
-        $month = $request->input('month');
+        $currentYear = Carbon::now()->year;
+        $currentMonth = Carbon::now()->month;
 
-        $queryStart = Carbon::create($year, $month ?? 1, 1)->startOfDay();
-        $queryEnd   = $month
-            ? $queryStart->copy()->endOfMonth()
-            : $queryStart->copy()->endOfYear();
+        $year = $request->input('year', $currentYear);
+        $month = $request->input('month'); // This will be null if "Full Year Summary" is selected
+        $dailyRange = $request->input('daily_range', 'today'); // Default to 'today' as per blade
 
-        $invoiceQuery    = Invoice::whereBetween('created_at', [$queryStart, $queryEnd]);
-        $purchaseQuery   = Purchase::whereBetween('created_at', [$queryStart, $queryEnd]);
-        $adjustmentQuery = InventoryAdjustment::whereBetween('created_at', [$queryStart, $queryEnd]);
+        $startDate = null;
+        $endDate = null;
+        $dateRange = 'Overall Summary'; // Variable name for blade compatibility
 
-        $invoiceCount = (clone $invoiceQuery)->count();
-        $totalSales   = (clone $invoiceQuery)->sum('grand_total');
+        // Prioritize daily_range filter
+        if (!empty($dailyRange) && $dailyRange !== '-- Select --') { // Check for actual selection, not just default or empty string
+            switch ($dailyRange) {
+                case 'today':
+                    $startDate = Carbon::today();
+                    $endDate = Carbon::now();
+                    $dateRange = 'Today';
+                    break;
+                case 'yesterday':
+                    $startDate = Carbon::yesterday();
+                    $endDate = Carbon::yesterday()->endOfDay();
+                    $dateRange = 'Yesterday';
+                    break;
+                case '3days':
+                    $startDate = Carbon::today()->subDays(2); // Includes today
+                    $endDate = Carbon::now();
+                    $dateRange = 'Last 3 Days';
+                    break;
+                case '7days':
+                    $startDate = Carbon::today()->subDays(6); // Includes today
+                    $endDate = Carbon::now();
+                    $dateRange = 'Last 7 Days';
+                    break;
+                case '14days':
+                    $startDate = Carbon::today()->subDays(13); // Includes today
+                    $endDate = Carbon::now();
+                    $dateRange = 'Last 14 Days';
+                    break;
+                case '28days':
+                    $startDate = Carbon::today()->subDays(27); // Includes today
+                    $endDate = Carbon::now();
+                    $dateRange = 'Last 28 Days';
+                    break;
+            }
+        } else { // If no specific daily range is selected or it's '-- Select --', use year/month filters
+            if ($month) {
+                $startDate = Carbon::create($year, $month, 1)->startOfDay();
+                $endDate = Carbon::create($year, $month)->endOfMonth()->endOfDay();
+                $dateRange = Carbon::createFromFormat('!m', $month)->format('F') . ' ' . $year;
+            } else {
+                // Full Year Summary for the selected year
+                $startDate = Carbon::create($year, 1, 1)->startOfDay();
+                $endDate = Carbon::create($year, 12, 31)->endOfDay();
+                $dateRange = 'Full Year ' . $year;
+            }
+        }
 
-        $purchaseCount = (clone $purchaseQuery)->count();
-        $totalSpent    = (clone $purchaseQuery)->sum('total_amount');
+        // --- Dashboard Data Queries (Filtered by $startDate and $endDate) ---
 
-        $stockInQty = (clone $purchaseQuery)->sum('quantity');
+        // Sales Metrics
+        $salesQuery = Invoice::query()->whereBetween('invoice_date', [$startDate, $endDate]);
+        $totalSales = $salesQuery->sum('grand_total');
+        $invoiceCount = $salesQuery->count();
 
-        $stockOutQty = InvoiceItem::whereHas('invoice', function ($query) use ($queryStart, $queryEnd) {
-                $query->whereBetween('created_at', [$queryStart, $queryEnd]);
-            })
-            ->sum('qty');
+        // Purchase Metrics (Assuming a 'Purchase' model with 'total_amount' and 'purchase_date')
+        $purchaseQuery = Purchase::query()->whereBetween('purchase_date', [$startDate, $endDate]);
+        $totalSpent = $purchaseQuery->sum('total_amount');
+        $purchaseCount = $purchaseQuery->count();
 
-        $costOfGoodsSold = InvoiceItem::whereHas('invoice', function ($query) use ($queryStart, $queryEnd) {
-                $query->whereBetween('created_at', [$queryStart, $queryEnd]);
-            })
-            ->with('product')
-            ->get()
-            ->sum(fn ($item) => $item->qty * ($item->product->purchase_cost ?? 0));
+        // Cost of Goods Sold & Stock Out Quantity
+        $stockOutQty = DB::table('invoice_items')
+            ->join('invoices', 'invoice_items.invoice_id', '=', 'invoices.id')
+            ->whereBetween('invoices.invoice_date', [$startDate, $endDate])
+            ->sum('invoice_items.qty');
 
-        $totalProducts     = Product::count();
-        $totalCustomers    = Customer::count();
-        $rawMaterialsCount = Product::where('category', 'raw_material')->count();
-        $inStock           = Product::where('stock', '>', 0)->count();
-        $outOfStock        = Product::where('stock', '<=', 0)->count();
- 
-        // Updated "Near Expiry" to be based on alert_stock_level < 10
-        $nearExpiry = Product::where('alert_stock_level', '<', 10)
-            ->count();
-
-        $today      = Carbon::today();
-        $salesToday = Invoice::whereDate('created_at', $today)->sum('grand_total');
-        $costToday  = Purchase::whereDate('created_at', $today)->sum('total_amount');
-
-        $chequesPending = Cheque::where('status', 'pending')->count();
-        $chequesCleared = Cheque::where('status', 'cleared')->count();
-        $chequesBounced = Cheque::where('status', 'bounced')->count();
+        $costOfGoodsSold = DB::table('invoice_items')
+            ->join('invoices', 'invoice_items.invoice_id', '=', 'invoices.id')
+            ->join('products', 'invoice_items.product_id', '=', 'products.id')
+            ->whereBetween('invoices.invoice_date', [$startDate, $endDate])
+            ->select(DB::raw('SUM(invoice_items.qty * products.purchase_cost) as total_cost'))
+            ->value('total_cost') ?? 0;
 
         $netProfit = $totalSales - $costOfGoodsSold;
 
-        $damageSpoiled = (clone $adjustmentQuery)->where('type', 'damage_spoiled')->sum('quantity');
-        $customerReturn = (clone $adjustmentQuery)->where('type', 'customer_return')->sum('quantity');
-        $internalUse = (clone $adjustmentQuery)->where('type', 'internal_use')->sum('quantity');
-        $wastage = (clone $adjustmentQuery)->where('type', 'wastage')->sum('quantity');
-        $scrap = (clone $adjustmentQuery)->where('type', 'scrap')->sum('quantity');
+        // Product Statistics (Generally not date-range specific, but can be if needed)
+        $totalProducts = Product::count();
+        $inStock = Product::where('initial_stock', '>', 0)->count();
+        $outOfStock = Product::where('initial_stock', '<=', 0)->count();
+        $totalCustomers = Customer::count(); // Add this line to count total customers
+        $nearExpiry = Product::whereColumn('initial_stock', '<=', 'alert_stock_level')->count(); // Count of products near low stock
 
-        $totalWastage = $damageSpoiled + $customerReturn + $internalUse + $wastage + $scrap;
+        // Cheque Statistics
+        $chequesPending = Cheque::where('status', 'Pending')->whereBetween('maturity_date_ad', [$startDate, $endDate])->count();
+        $chequesBounced = Cheque::where('status', 'Bounced')->whereBetween('maturity_date_ad', [$startDate, $endDate])->count();
+        $chequesCleared = Cheque::where('status', 'Cleared')->whereBetween('maturity_date_ad', [$startDate, $endDate])->count();
 
-        $adjustmentLabels = ['Damage / Spoiled', 'Customer Return', 'Internal Use', 'Wastage', 'Scrap'];
-        $adjustmentValues = [$damageSpoiled, $customerReturn, $internalUse, $wastage, $scrap];
-        $adjustmentColors = ['#ef4444', '#3b82f6', '#f59e0b', '#8b5cf6', '#6b7280'];
+        $dueTodayCheques = Cheque::whereDate('maturity_date_ad', Carbon::today())->get();
+        $watchlistCheques = Cheque::where('status', 'Pending')
+                                ->where('maturity_date_ad', '>', Carbon::today())
+                                ->orderBy('maturity_date_ad')
+                                ->limit(5)
+                                ->get();
 
-        $totalWastageAmount = InventoryAdjustment::whereBetween('created_at', [$queryStart, $queryEnd])
-            ->whereIn('type', ['damage_spoiled', 'customer_return', 'internal_use', 'wastage', 'scrap'])
-            ->sum(DB::raw('quantity * unit_cost'));
+        // Low Stock Products (Global)
+        $lowStockProducts = Product::whereColumn('initial_stock', '<=', 'alert_stock_level')->get();
 
+        // Due Customers (Global)
+        $dueCustomers = Customer::where('previous_due', '>', 0)->orderByDesc('previous_due')->limit(5)->get();
+
+        // Recent Adjustments
+        $recentAdjustments = InventoryAdjustment::with('product')
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->latest()
+            ->limit(5)
+            ->get();
+
+        // Wastage & Adjustments Breakdown Chart
+        $adjustments = InventoryAdjustment::whereBetween('created_at', [$startDate, $endDate])
+            ->select('type', DB::raw('SUM(quantity) as total_quantity'))
+            ->groupBy('type')
+            ->get();
+
+        $adjustmentLabels = $adjustments->pluck('type')->map(fn($type) => ucfirst($type))->toArray();
+        $adjustmentValues = $adjustments->pluck('total_quantity')->toArray();
+        $adjustmentColors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6']; // Example colors
+        $totalWastage = array_sum($adjustmentValues);
+
+        // Monthly/Daily Sales & Purchases for Charts
         $monthlyLabels = [];
         $monthlySales = [];
         $monthlyPurchases = [];
 
-        if ($month) {
-            $monthStart = Carbon::create($year, $month, 1)->startOfMonth();
-            $monthEnd   = $monthStart->copy()->endOfMonth();
-
-            $monthlyLabels[] = $monthStart->format('M Y');
-            $monthlySales[] = Invoice::whereBetween('created_at', [$monthStart, $monthEnd])->sum('grand_total');
-            $monthlyPurchases[] = Purchase::whereBetween('created_at', [$monthStart, $monthEnd])->sum('total_amount');
+        if (!empty($dailyRange) && $dailyRange !== '-- Select --') {
+            // Aggregate by day for daily ranges
+            $period = Carbon::parse($startDate)->toPeriod($endDate, '1 day');
+            foreach ($period as $date) {
+                $dayLabel = $date->format('M d');
+                $monthlyLabels[] = $dayLabel;
+                $monthlySales[] = Invoice::whereDate('invoice_date', $date)->sum('grand_total');
+                $monthlyPurchases[] = Purchase::whereDate('purchase_date', $date)->sum('total_amount');
+            }
         } else {
-            for ($m = 1; $m <= 12; $m++) {
-                $monthStart = Carbon::create($year, $m, 1)->startOfMonth();
-                $monthEnd = $monthStart->copy()->endOfMonth();
+            // Aggregate by month for monthly/yearly ranges
+            $queryStartDate = Carbon::create($year, 1, 1)->startOfDay();
+            $queryEndDate = Carbon::create($year, 12, 31)->endOfDay();
 
-                $monthlyLabels[] = $monthStart->format('M');
-                $monthlySales[] = Invoice::whereBetween('created_at', [$monthStart, $monthEnd])->sum('grand_total');
-                $monthlyPurchases[] = Purchase::whereBetween('created_at', [$monthStart, $monthEnd])->sum('total_amount');
+            $period = Carbon::parse($queryStartDate)->toPeriod($queryEndDate, '1 month');
+            foreach ($period as $date) {
+                // If a specific month is selected, only include that month
+                if ($month && $date->month != $month) {
+                    continue;
+                }
+                $monthLabel = $date->format('M');
+                $monthlyLabels[] = $monthLabel;
+                $monthlySales[] = Invoice::whereYear('invoice_date', $date->year)
+                                        ->whereMonth('invoice_date', $date->month)
+                                        ->sum('grand_total');
+                $monthlyPurchases[] = Purchase::whereYear('purchase_date', $date->year)
+                                            ->whereMonth('purchase_date', $date->month)
+                                            ->sum('total_amount');
             }
         }
 
-        $lowStockProducts = Product::whereColumn('stock', '<=', 'alert_stock_level')
-            ->where('stock', '>', 0)
-            ->orderBy('stock', 'asc')
-            ->take(8)
-            ->get();
+        $data = [
+            'totalSales' => $totalSales,
+            'invoiceCount' => $invoiceCount,
+            'totalSpent' => $totalSpent,
+            'purchaseCount' => $purchaseCount,
+            'stockOutQty' => $stockOutQty,
+            'costOfGoodsSold' => $costOfGoodsSold,
+            'netProfit' => $netProfit,
+            'totalProducts' => $totalProducts,
+            'inStock' => $inStock,
+            'outOfStock' => $outOfStock,
+            'totalCustomers' => $totalCustomers, // Add this line to pass total customers to the view
+            'nearExpiry' => $nearExpiry,
+            'chequesPending' => $chequesPending,
+            'chequesBounced' => $chequesBounced,
+            'chequesCleared' => $chequesCleared,
+            'dueTodayCheques' => $dueTodayCheques,
+            'watchlistCheques' => $watchlistCheques,
+            'lowStockProducts' => $lowStockProducts,
+            'dueCustomers' => $dueCustomers,
+            'recentAdjustments' => $recentAdjustments,
+            'adjustmentLabels' => $adjustmentLabels,
+            'adjustmentValues' => $adjustmentValues,
+            'adjustmentColors' => $adjustmentColors,
+            'totalWastage' => $totalWastage,
+            'monthlyLabels' => $monthlyLabels,
+            'monthlySales' => $monthlySales,
+            'monthlyPurchases' => $monthlyPurchases,
+        ];
 
-        $stagnantProducts = Product::where('stock', '>', 0)
-            ->whereDoesntHave('invoiceItems', function ($query) use ($queryStart, $queryEnd) {
-                $query->whereHas('invoice', function ($q) use ($queryStart, $queryEnd) {
-                    $q->whereBetween('created_at', [$queryStart, $queryEnd]);
-                });
-            })
-            ->orderBy('stock', 'desc')
-            ->take(8)
-            ->get();
-
-        $dueCustomers = Customer::where('previous_due', '>', 0)
-            ->orderByDesc('previous_due')
-            ->take(8)
-            ->get();
-
-        $watchlistCheques = Cheque::where('status', 'pending')
-            ->orderBy('maturity_date_ad', 'asc')
-            ->take(8)
-            ->get();
-
-        $dueTodayCheques = Cheque::where('status', 'pending')
-            ->whereDate('maturity_date_ad', Carbon::today())
-            ->get();
-
-        $recentAdjustments = InventoryAdjustment::with('product')
-            ->whereBetween('created_at', [$queryStart, $queryEnd])
-            ->latest()
-            ->take(8)
-            ->get();
-
-        $recentInvoices = Invoice::with(['customer'])
-            ->latest()
-            ->take(8)
-            ->get();
-
-        $data = compact(
-            'invoiceCount',
-            'totalSales',
-            'purchaseCount',
-            'totalSpent',
-            'stockInQty',
-            'stockOutQty',
-            'totalProducts',
-            'totalCustomers',
-            'rawMaterialsCount',
-            'inStock',
-            'outOfStock',
-            'nearExpiry',
-            'salesToday',
-            'costToday',
-            'chequesPending',
-            'chequesCleared',
-            'chequesBounced',
-            'costOfGoodsSold',
-            'netProfit',
-            'damageSpoiled',
-            'customerReturn',
-            'internalUse',
-            'wastage',
-            'scrap',
-            'totalWastage',
-            'totalWastageAmount',
-            'adjustmentLabels',
-            'adjustmentValues',
-            'adjustmentColors',
-            'monthlyLabels',
-            'monthlySales',
-            'monthlyPurchases',
-            'lowStockProducts',
-            'stagnantProducts',
-            'dueCustomers',
-            'watchlistCheques',
-            'recentAdjustments',
-            'dueTodayCheques',
-            'recentInvoices'
-        );
-
-        return view('admin.dashboard', [
-            'data'          => $data,
-            'selectedYear'  => $year,
-            'selectedMonth' => $month,
-            'dateRange'     => $queryStart->format('M Y') . ($month ? '' : ' (Full Year)'),
-        ]);
-    }
-
-    public function guide()
-    {
-        return view('admin.user-guide');
+        return view('admin.dashboard', compact('data', 'dateRange'));
     }
 }

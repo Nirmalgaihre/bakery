@@ -118,12 +118,26 @@ class SalesController extends Controller
     /**
      * Sales List Index.
      */
-    public function index(Request $request)
+    public function showInventoryProducts(Request $request) // Renamed from index()
     {
         // Fetch products with pagination
         $products = Product::latest()->paginate(15);
         
         return view('admin.inventory.index', compact('products'));
+    }
+
+    /**
+     * Display all sales, grouped by customer, with their invoice items.
+     */
+    public function index(Request $request) // This method will now serve admin.sales.all
+    {
+        $customersWithSales = Customer::with(['invoices' => function($query) {
+            $query->with('items.product')->latest(); // Eager load invoice items and their products
+        }])
+        ->orderBy('name', 'asc')
+        ->get();
+
+        return view('admin.sales.all', compact('customersWithSales'));
     }
 
     /**

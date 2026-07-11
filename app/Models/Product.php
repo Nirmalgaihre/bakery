@@ -13,13 +13,17 @@ class Product extends Model
    protected $fillable = [
     'name',
     'category',
+    'category_id', // Ensure this exists if you are storing the ID
     'purchase_cost',
     'selling_price',
     'inventory_unit',
     'initial_stock',
-    'stock', // Added this so it can be updated via import
+    'stock',
     'alert_stock_level',
     'alert_sent',
+    'item_code', // New
+    'color',     // New
+    'size',      // New
 ];
 
     public function transactions()

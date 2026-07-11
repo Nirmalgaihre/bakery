@@ -37,36 +37,40 @@ class ProductController extends Controller
     {
         return redirect()->route('admin.products.index');
     }
+public function store(Request $request)
+{
+    $validated = $request->validate([
+        'item_code'         => 'required|string|max:50|unique:products,item_code',
+        'name'              => 'required|string|max:255|unique:products,name',
+        'category_id'       => 'required|string|max:255', 
+        'color'             => 'nullable|string|max:50',
+        'size'              => 'nullable|string|max:50',
+        'purchase_cost'     => 'required|numeric|min:0',
+        'selling_price'     => 'required|numeric|min:0',
+        'inventory_unit'    => 'required|string|in:kg,paau,bottle,cartoon,boxes',
+        'initial_stock'     => 'required|numeric|min:0', 
+        'alert_stock_level' => 'required|integer|min:0',
+    ]);
 
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'name'              => 'required|string|max:255|unique:products,name',
-            'category_id'       => 'required|exists:sector_categories,id', 
-            'purchase_cost'     => 'required|numeric|min:0',
-            'selling_price'     => 'required|numeric|min:0',
-            'inventory_unit'    => 'required|string|in:kg,paau,bottle,cartoon,boxes',
-            'initial_stock'     => 'required|numeric|min:0', 
-            'alert_stock_level' => 'required|integer|min:0',
-        ]);
+    \App\Models\Product::create([
+        'item_code'         => $validated['item_code'],
+        'name'              => $validated['name'],
+        'category_id'       => $validated['category_id'], // Now stores 'cat-oki'
+        'category'          => $validated['category_id'], // Storing the same string
+        'color'             => $validated['color'],
+        'size'              => $validated['size'],
+        'purchase_cost'     => $validated['purchase_cost'],
+        'selling_price'     => $validated['selling_price'],
+        'inventory_unit'    => $validated['inventory_unit'],
+        'initial_stock'     => $validated['initial_stock'], 
+        'stock'             => $validated['initial_stock'],
+        'alert_stock_level' => $validated['alert_stock_level'],
+        'alert_sent'        => false,
+    ]);
 
-        $categoryModel = SectorCategory::findOrFail($validated['category_id']);
-
-        Product::create([
-            'name'              => $validated['name'],
-            'category'          => $categoryModel->name, 
-            'purchase_cost'     => $validated['purchase_cost'],
-            'selling_price'     => $validated['selling_price'],
-            'inventory_unit'    => $validated['inventory_unit'],
-            'initial_stock'     => $validated['initial_stock'], 
-            'stock'             => $validated['initial_stock'],
-            'alert_stock_level' => $validated['alert_stock_level'], 
-        ]);
-
-        return redirect()->route('admin.products.index')
-                         ->with('success', 'Product registered in the system inventory matrix successfully!');
-    }
-
+    return redirect()->route('admin.products.index')
+                     ->with('success', 'Product registered successfully!');
+}
     public function edit(Product $product)
     {
         return view('admin.products.edit', compact('product'));

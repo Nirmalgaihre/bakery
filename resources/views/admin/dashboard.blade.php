@@ -429,13 +429,27 @@
             <div class="flex flex-col gap-1">
                 <label class="text-xs font-bold text-gray-500 uppercase tracking-wider">Period</label>
                 <select name="month" onchange="this.form.submit()"
-                    class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 block p-2 w-48">
-                    <option value="">Full Year Summary</option>
+                    class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 block p-2 w-48">                    <option value="">Full Year Summary</option>
+                    @php $currentMonth = date('n'); @endphp
                     @foreach(range(1,12) as $m)
-                    <option value="{{ $m }}" {{ request('month') == $m ? 'selected' : '' }}>
+                    <option value="{{ $m }}" {{ request('month', $currentMonth) == $m ? 'selected' : '' }}>
                         {{ DateTime::createFromFormat('!m', $m)->format('F') }}
                     </option>
                     @endforeach
+                </select>
+            </div>
+
+            <div class="flex flex-col gap-1">
+                <label class="text-xs font-bold text-gray-500 uppercase tracking-wider">Daily Range</label>
+                <select name="daily_range" onchange="this.form.submit()"
+                    class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 block p-2 w-40">                    <option value="">-- Select --</option>
+                    <option value="">-- Select --</option>
+                    <option value="today" {{ request('daily_range', 'today') == 'today' ? 'selected' : '' }}>Today</option>
+                    <option value="yesterday" {{ request('daily_range') == 'yesterday' ? 'selected' : '' }}>Yesterday</option>
+                    <option value="3days" {{ request('daily_range') == '3days' ? 'selected' : '' }}>Last 3 Days</option>
+                    <option value="7days" {{ request('daily_range') == '7days' ? 'selected' : '' }}>Last 7 Days</option>
+                    <option value="14days" {{ request('daily_range') == '14days' ? 'selected' : '' }}>Last 14 Days</option>
+                    <option value="28days" {{ request('daily_range') == '28days' ? 'selected' : '' }}>Last 28 Days</option>
                 </select>
             </div>
 

@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-// Import the correct Relationship class
+use App\Models\Transaction;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Customer extends Model
@@ -54,5 +54,27 @@ class Customer extends Model
     public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class);
+    }
+    public function transactions()
+    {
+        return $this->hasMany(Transaction::class); 
+    }
+
+    public function getOpeningBalance($fiscalYear)
+    {
+        $range = FiscalYearHelper::getFiscalYearDateRange($fiscalYear);
+        // Calculate balance from all transactions BEFORE the start date
+        return $this->transactions()
+            ->where('date', '<', $range['ad_start'])
+            ->sum('amount'); // Replace 'amount' with your balance field
+    }
+
+    public function getNetTransactions($fiscalYear)
+    {
+        $range = FiscalYearHelper::getFiscalYearDateRange($fiscalYear);
+        // Calculate sum of transactions within the fiscal year
+        return $this->transactions()
+            ->whereBetween('date', [$range['ad_start'], $range['ad_end']])
+            ->sum('amount');
     }
 }

@@ -382,6 +382,38 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Inventory -->
+            <div class="space-y-0.5">
+                <button @click="openInventory = !openInventory"
+                    class="w-full flex items-center justify-between px-3 py-2 text-[13px] font-medium rounded-md transition-all {{ request()->is('admin/inventory*') ? 'text-white bg-brandDarkLight/40' : 'text-slate-400 hover:text-slate-200 hover:bg-brandDarkLight' }} outline-none">
+                    <span class="flex items-center">
+                        <i class="fa-solid fa-warehouse mr-3 w-4 text-center text-sm text-slate-500"></i>Inventory
+                    </span>
+                    <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-200"
+                        :class="openInventory ? 'rotate-180 text-slate-300' : ''"></i>
+                </button>
+
+                <div x-show="openInventory" x-cloak x-collapse
+                    class="pl-4 space-y-0.5 border-l border-slate-800 ml-5 mt-0.5">
+                    <!-- New Link Added Below -->
+                    <a href="{{ route('admin.inventory.position') }}"
+                        class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->routeIs('admin.inventory.position') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
+                        <i class="fa-solid fa-chart-pie mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Stock
+                        Position
+                    </a>
+                    <a href="{{ route('admin.inventory.add') }}"
+                        class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->is('admin/inventory/add*') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
+                        <i class="fa-solid fa-box mr-2 text-[11px] text-slate-500 w-3 text-center"></i>Add Stock
+                    </a>
+                    <a href="{{ route('admin.inventory.low_stock_manager') }}"
+                        class="flex items-center px-3 py-1.5 text-[12px] font-medium rounded-md transition-all {{ request()->is('admin/inventory/low-stock*') ? 'text-blue-400 font-semibold' : 'text-slate-400 hover:text-slate-200' }}">
+                        <i
+                            class="fa-solid fa-triangle-exclamation mr-2 text-[11px] text-orange-500 w-3 text-center"></i>Low
+                        Stock
+                    </a>
+                </div>
+            </div>
             @if(auth()->check() && auth()->user()->role === 'admin')
             <div class="pt-4 mt-2 border-t border-slate-800/60" x-data="{ ... }">
                 <div class="space-y-0.5">

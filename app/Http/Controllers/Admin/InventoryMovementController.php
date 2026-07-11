@@ -367,4 +367,30 @@ public function showWebInvoice($id)
     $products = \App\Models\Product::orderBy('name', 'asc')->get();
     return view('admin.inventory.add_stock_select', compact('products'));
 }
+public function stockPosition(Request $request)
+{
+    $fromDate = $request->input('from_date', '2025-07-17');
+    $toDate = $request->input('to_date', date('Y-m-d'));
+
+    $stockReport = \App\Models\Product::query()
+        ->leftJoin('stock_transactions as st', function($join) use ($fromDate, $toDate) {
+            $join->on('products.id', '=', 'st.product_id')
+                 ->whereBetween('st.created_at', [$fromDate . ' 00:00:00', $toDate . ' 23:59:59']);
+        })
+        ->leftJoin('inventory_adjustments as ia', function($join) use ($fromDate, $toDate) {
+            $join->on('products.id', '=', 'ia.product_id')
+                 ->whereBetween('ia.created_at', [$fromDate . ' 00:00:00', $toDate . ' 23:59:59']);
+        })
+        ->select(
+            'products.id', 'products.name', 'products.item_code', 'products.color', 
+            'products.size', 'products.inventory_unit', 'products.initial_stock', 'products.purchase_cost',
+            DB::raw("COALESCE(SUM(CASE WHEN st.type = 'purchase' THEN st.quantity ELSE 0 END), 0) as total_purchase"),
+            DB::raw("COALESCE(SUM(CASE WHEN st.type = 'sale' THEN st.quantity ELSE 0 END), 0) as total_sale"),
+            DB::raw("COALESCE(SUM(ia.quantity), 0) as total_adjustment")
+        )
+        ->groupBy('products.id', 'products.name', 'products.item_code', 'products.color', 'products.size', 'products.inventory_unit', 'products.initial_stock', 'products.purchase_cost')
+        ->get();
+
+    return view('admin.inventory.position', compact('stockReport', 'fromDate', 'toDate'));
+}
 }

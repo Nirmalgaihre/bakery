@@ -69,15 +69,22 @@ class FiscalYearHelper
     }
 
     public static function getLastDayOfNepaliMonth(int $year, int $month): int
-    {
-        for ($day = 32; $day >= 28; $day--) {
-            $date = sprintf('%04d-%02d-%02d', $year, $month, $day);
+{
+    // Start from 32 and work downwards to find the first valid date
+    for ($day = 32; $day >= 28; $day--) {
+        $date = sprintf('%04d-%02d-%02d', $year, $month, $day);
 
+        // Use a try-catch block to prevent the exception from crashing the app
+        try {
             if (LaravelNepaliDate::validateNepali($date, 'Y-m-d')) {
                 return $day;
             }
+        } catch (\Exception $e) {
+            // If invalid, continue to the next day
+            continue;
         }
-
-        return 32;
     }
+
+    return 28; // Fallback
+}
 }
