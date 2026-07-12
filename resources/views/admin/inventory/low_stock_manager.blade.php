@@ -1,77 +1,97 @@
 @extends('layouts.admin')
+@section('title', 'Low Stock Alerts')
+
 @section('content')
-<div class="p-6">
-    <div class="flex justify-between items-center mb-6">
-        <div>
-            <h1 class="text-2xl font-bold text-slate-800">Low Stock Alert</h1>
-            <p class="text-slate-500 text-sm">Items that have reached or dropped below the alert threshold.</p>
-        </div>
-        <a href="{{ route('admin.products.index') }}"
-            class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition">
-            View All Products
-        </a>
+<div class="my-6">
+    
+    <!-- Search Input: Styled to match -->
+    <div class="mb-4">
+        <input 
+            type="text" 
+            id="searchInput" 
+            onkeyup="searchTable()" 
+            placeholder="Search low stock products..." 
+            class="w-full md:w-1/4 px-3 py-1.5 border border-slate-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+        >
     </div>
 
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <table class="w-full text-left">
-            <thead>
-                <tr
-                    class="bg-slate-50 border-b border-slate-200 text-slate-700 uppercase text-[11px] tracking-wider font-semibold">
-                    <th class="px-6 py-4">Product Name</th>
-                    <th class="px-6 py-4 text-center">Current Stock</th>
-                    <th class="px-6 py-4 text-center">Alert Level</th>
-                    <th class="px-6 py-4 text-center">Status</th>
-                    <th class="px-6 py-4 text-right">Action</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
-                @forelse($lowStockProducts as $product)
-                <tr class="hover:bg-slate-50 transition">
-                    <td class="px-6 py-4 font-medium text-slate-900">{{ $product->name }}</td>
-                    <td class="px-6 py-4 text-center">
-                        <span class="px-2 py-1 bg-red-100 text-red-700 rounded-md font-bold text-xs">
-                            {{ $product->initial_stock }} {{ $product->inventory_unit }}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4 text-center text-slate-600 font-medium">{{ $product->alert_stock_level }}</td>
-                    <td class="px-6 py-4 text-center">
-                        @if($product->email_sent)
-                        <div class="flex items-center justify-center gap-1.5 text-green-700">
-                            <span class="relative flex h-2 w-2">
-                                <span
-                                    class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                            </span>
-                            <span class="text-[11px] font-bold uppercase tracking-wider">Sent</span>
-                        </div>
-                        <p class="text-[9px] text-slate-400 mt-0.5">Cooldown Active</p>
-                        @else
-                        <div class="flex items-center justify-center gap-1.5 text-amber-600">
-                            <i class="fa-solid fa-hourglass-half text-[10px]"></i>
-                            <span class="text-[11px] font-bold uppercase tracking-wider">Pending</span>
-                        </div>
-                        <p class="text-[9px] text-slate-400 mt-0.5">Ready to Trigger</p>
-                        @endif
-                    </td>
-                    <td class="px-6 py-4 text-right">
-                        <a href="{{ route('admin.products.edit', $product->id) }}"
-                            class="text-blue-600 hover:text-blue-800 text-xs font-semibold">
-                            Restock Item
-                        </a>
-                    </td>
-                </tr>
-                @empty
-                <tr>
-                    <td colspan="5" class="px-6 py-10 text-center text-slate-400">
-                        <div class="flex flex-col items-center">
-                            <i class="fa-solid fa-check-double text-3xl mb-2 text-green-400"></i>
-                            <p>All stock levels are optimal!</p>
-                        </div>
-                    </td>
-                </tr>
-                @endforelse
-            </tbody>
-        </table>
+    <!-- Table Container -->
+    <div class="bg-white border border-slate-200 rounded shadow-sm">
+        <div class="px-6 py-4 border-b border-slate-100">
+            <h2 class="text-md font-bold text-slate-700">Low Stock Alerts</h2>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table id="inventoryTable" class="w-full text-left text-sm">
+                <thead>
+                    <tr class="text-slate-500 uppercase text-[11px] font-bold">
+                        <th class="px-6 py-4">SN</th>
+                        <th class="px-6 py-4">Product Name</th>
+                        <th class="px-6 py-4">Current Stock</th>
+                        <th class="px-6 py-4">Alert Level</th>
+                        <th class="px-6 py-4">Status</th>
+                        <th class="px-6 py-4 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    @forelse($lowStockProducts as $product)
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-6 py-3 text-slate-400 font-mono text-xs">{{ $loop->iteration }}</td>
+                        <td class="px-6 py-3 text-slate-700 font-medium">{{ $product->name }}</td>
+                        <td class="px-6 py-3 text-slate-600 font-bold">
+                            {{ $product->initial_stock }} 
+                            <span class="text-[10px] text-slate-400 font-normal">{{ strtoupper($product->inventory_unit) }}</span>
+                        </td>
+                        <td class="px-6 py-3 text-slate-500 font-mono text-xs">{{ $product->alert_stock_level }}</td>
+                        <td class="px-6 py-3">
+                            @if($product->email_sent)
+                                <div class="flex items-center gap-1.5 text-emerald-600">
+                                    <span class="relative flex h-1.5 w-1.5">
+                                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                        <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                                    </span>
+                                    <span class="text-[10px] font-bold uppercase">Sent</span>
+                                </div>
+                            @else
+                                <div class="flex items-center gap-1.5 text-orange-500">
+                                    <span class="text-[10px] font-bold uppercase">Pending</span>
+                                </div>
+                            @endif
+                        </td>
+                        <td class="px-6 py-3 text-right">
+                            <a href="{{ route('admin.products.edit', $product->id) }}" 
+                               class="text-[11px] font-bold text-blue-600 hover:text-blue-800 uppercase">
+                               Restock
+                            </a>
+                        </td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="6" class="px-6 py-10 text-center text-slate-400 text-xs">
+                            All stock levels are currently optimal.
+                        </td>
+                    </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
+
+<script>
+function searchTable() {
+    const input = document.getElementById("searchInput");
+    const filter = input.value.toUpperCase();
+    const table = document.getElementById("inventoryTable");
+    const tr = table.getElementsByTagName("tr");
+
+    for (let i = 1; i < tr.length; i++) {
+        // Target index 1 for Product Name
+        const td = tr[i].getElementsByTagName("td")[1]; 
+        if (td) {
+            tr[i].style.display = (td.textContent || td.innerText).toUpperCase().indexOf(filter) > -1 ? "" : "none";
+        }
+    }
+}
+</script>
 @endsection

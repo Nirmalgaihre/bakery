@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Auth\LoginController;
 use App\Exports\ProductsExport;
+use App\Http\Controllers\Admin\AiAssistantController;
 use App\Http\Controllers\Admin\{
     DashboardController, CustomerController, ProductController as AdminProductController,
     SectorCategoryController, StockController, InventoryMovementController,
@@ -96,6 +97,9 @@ Route::get('customers/{customer}/month/{month}', [CustomerController::class, 'mo
         Route::prefix('invoices')->name('invoices.')->group(function () {
             Route::get('/create', [InvoiceController::class, 'create'])->name('create');
             Route::post('/store', [InvoiceController::class, 'store'])->name('store');
+            Route::get('/{invoice}/edit', [InvoiceController::class, 'edit'])->name('edit');
+            Route::put('/{invoice}', [InvoiceController::class, 'update'])->name('update');
+            Route::delete('/{invoice}', [InvoiceController::class, 'destroy'])->name('destroy');
             Route::post('/generate-link/{invoice}', [InvoiceController::class, 'generateShareLink'])->name('generate_link');
             Route::get('/generate-image/{id}', [InvoiceController::class, 'generateShareableImage'])->name('generate_image');
         });
@@ -106,7 +110,8 @@ Route::get('customers/{customer}/month/{month}', [CustomerController::class, 'mo
             Route::post('/pos', [SalesController::class, 'store'])->name('pos.store');
             Route::get('/pos/{product?}', [SalesController::class, 'createSale'])->name('pos.create');
             Route::post('/{id}/update-payment', [SalesController::class, 'updatePayment'])->name('update-payment');
-            Route::get('/all', [SalesController::class, 'index'])->name('all');        });
+            Route::get('/manage', [SalesController::class, 'manage'])->name('manage');
+            });
 
         // Cheques Management (manage)
         Route::prefix('cheques')->name('cheques.')->group(function () {
@@ -194,12 +199,13 @@ Route::get('customers/{customer}/month/{month}', [CustomerController::class, 'mo
         // Sales & POS (view only)
         Route::prefix('sales')->name('sales.')->group(function () {
             Route::get('/dashboard', [SalesDashboardController::class, 'index'])->name('dashboard');
-            Route::get('/analysis', [SalesController::class, 'itemAnalysis'])->name('item-analysis');
+            Route::get('/analysis', [SalesController::class, 'itemAnalysis'])->name('item-analysis'); // Kept this route as it's a valid feature
             Route::get('/ledger-by-phone/{phone}', [CustomerLedgerController::class, 'showByPhone'])->name('customer-ledger-by-phone');
             Route::get('/ledger/{customerId}', [CustomerLedgerController::class, 'showCustomerLedger'])->name('customer-ledger');
             Route::get('/customer/{id}', [CustomerLedgerController::class, 'showCustomerLedger'])->name('customer-ledger-old');
             Route::get('/logs', [InventoryMovementController::class, 'salesIndex'])->name('index');
             Route::get('/invoices/print/{invoice}', [InvoiceController::class, 'printInvoicePDF'])->name('invoices.print');
+            Route::get('/all', [SalesController::class, 'index'])->name('all');
         });
 
         // Cheques Management (view only)
@@ -252,5 +258,7 @@ Route::get('customers/{customer}/month/{month}', [CustomerController::class, 'mo
         // Activity Logs (view only)
         Route::get('logs', [ActivityLogController::class, 'index'])->name('logs.index');
         Route::get('logs/{id}', [ActivityLogController::class, 'show'])->name('logs.show');
+        Route::post('/ai/query', [AiAssistantController::class, 'query'])->name('ai.query');
     });
+    
 });

@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\User;
+use App\Models\Sale; // <--- Ensure this line is present
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -116,7 +117,10 @@ class SalesController extends Controller
     }
 
     /**
-     * Sales List Index.
+     * Display a paginated list of products for inventory management.
+     * This method was previously named `index()` and was renamed to clarify its purpose.
+     *
+     * @return \Illuminate\View\View
      */
     public function showInventoryProducts(Request $request) // Renamed from index()
     {
@@ -128,6 +132,9 @@ class SalesController extends Controller
 
     /**
      * Display all sales, grouped by customer, with their invoice items.
+     * This method is intended to serve the 'admin.sales.all' route, providing a customer-centric view of sales.
+     *
+     * @return \Illuminate\View\View
      */
     public function index(Request $request) // This method will now serve admin.sales.all
     {
@@ -416,10 +423,13 @@ private function sendLowStockEmail($productName, $currentStock)
             Log::error("General Error: " . $e->getMessage());
         }
     }
-    public function all()
-{
-    // Your logic to fetch all sales
-    $sales = Sale::all();
-    return view('admin.sales.all', compact('sales'));
-}
+public function manage()
+    {
+        // Fetch all sales, eager loading relations like 'customer' or 'user' if needed
+        // The user requested to show all invoices in the manage section.
+        // Assuming 'Sale' model was a placeholder or intended to be 'Invoice'.
+        $sales = Invoice::with('customer')->latest()->paginate(20);
+
+        return view('admin.sales.manage', compact('sales'));
+    }
 }

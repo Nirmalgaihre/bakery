@@ -20,8 +20,28 @@
         </div>
     @endif
 
+    {{-- Skeleton Loader UI Effect --}}
+    <div id="customer-form-skeleton" class="animate-pulse bg-white border border-slate-200 rounded-lg shadow-xs overflow-hidden">
+        <div class="p-4 bg-slate-100 h-10 w-full mb-6"></div>
+        <div class="p-6 space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div class="h-14 bg-slate-100 rounded"></div>
+                <div class="h-14 bg-slate-100 rounded"></div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div class="h-14 bg-slate-100 rounded"></div>
+                <div class="h-14 bg-slate-100 rounded"></div>
+            </div>
+            <div class="h-24 bg-slate-100 rounded"></div>
+        </div>
+        <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+            <div class="h-8 w-20 bg-slate-200 rounded"></div>
+            <div class="h-8 w-36 bg-slate-200 rounded"></div>
+        </div>
+    </div>
+
     {{-- Interactive Customer Entry Engine Form --}}
-    <form action="{{ route('admin.customers.store') }}" method="POST" class="bg-white border border-slate-200 rounded-lg shadow-xs overflow-hidden">
+    <form id="customer-registry-form" action="{{ route('admin.customers.store') }}" method="POST" class="hidden bg-white border border-slate-200 rounded-lg shadow-xs overflow-hidden">
         @csrf
         
         <div class="p-4 px-5 border-b border-slate-100 bg-slate-50/70 text-xs font-bold text-slate-600 tracking-wider uppercase flex items-center gap-2">
@@ -84,4 +104,16 @@
         </div>
     </form>
 </div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const skeleton = document.getElementById('customer-form-skeleton');
+        const form = document.getElementById('customer-registry-form');
+        
+        if (skeleton && form) {
+            skeleton.classList.add('hidden');
+            form.classList.remove('hidden');
+        }
+    });
+</script>
 @endsection

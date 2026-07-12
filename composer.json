@@ -11,6 +11,7 @@
         "laravel/framework": "^13.8",
         "laravel/tinker": "^3.0",
         "maatwebsite/excel": "^3.1",
+        "openai-php/laravel": "^0.20.0",
         "phpmailer/phpmailer": "^7.1",
         "setasign/fpdf": "^1.8",
         "spatie/browsershot": "^5.4",

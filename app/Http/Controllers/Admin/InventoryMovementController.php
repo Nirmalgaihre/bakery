@@ -361,10 +361,11 @@ public function showWebInvoice($id)
         return view('admin.inventory.low_stock_manager', compact('lowStockProducts'));
     }
 
-    public function createAddStock()
+   public function createAddStock()
 {
-    // Fetch products to choose from
-    $products = \App\Models\Product::orderBy('name', 'asc')->get();
+    // यहाँ get() को सट्टा paginate(10) वा आफ्नो आवश्यकता अनुसारको नम्बर राख्नुहोस्
+    $products = \App\Models\Product::orderBy('name', 'asc')->paginate(10);
+    
     return view('admin.inventory.add_stock_select', compact('products'));
 }
 public function stockPosition(Request $request)

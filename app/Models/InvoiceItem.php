@@ -1,23 +1,34 @@
 <?php
+
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class InvoiceItem extends Model
 {
-    // ... existing code ...
+    use HasFactory;
 
     /**
-     * Get the invoice that owns the item.
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
      */
-    public function invoice(): BelongsTo
-    {
+    protected $fillable = [
+        'invoice_id',
+        'product_id',
+        'product_name',
+        'qty',
+        'unit',
+        'price',
+        'total',
+    ];
+
+    public function invoice() {
         return $this->belongsTo(Invoice::class);
     }
-    public function product()
-    {
-        // Adjust 'product_id' if your foreign key is named differently
-        return $this->belongsTo(Product::class, 'product_id');
+
+    public function product() {
+        return $this->belongsTo(Product::class);
     }
 }
