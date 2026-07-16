@@ -125,7 +125,7 @@ class SalesController extends Controller
     public function showInventoryProducts(Request $request) // Renamed from index()
     {
         // Fetch products with pagination
-        $products = Product::latest()->paginate(15);
+        $products = Product::with('category')->latest()->paginate(15); // Eager load category
         
         return view('admin.inventory.index', compact('products'));
     }
@@ -412,9 +412,33 @@ private function sendLowStockEmail($productName, $currentStock)
 
             // Email Content
             $mail->isHTML(true);
-            $mail->Subject = 'Low Stock Alert: ' . $productName;
-            $mail->Body    = "Inventory Alert: Product <b>{$productName}</b> is running low. Remaining: <b>{$currentStock}</b>.";
-            
+            $mail->Subject = 'Inventory Alert: Low Stock Notification - ' . $productName;
+
+            $mail->Body = "
+                <div style='font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px;'>
+                    <h2 style='color: #d9534f;'>Low Stock Alert</h2>
+                    <p>This is an automated notification to inform you that an item in your inventory is running low.</p>
+                    
+                    <table style='width: 100%; border-collapse: collapse; margin: 20px 0;'>
+                        <tr>
+                            <td style='padding: 8px; border-bottom: 1px solid #eee;'><strong>Product Name:</strong></td>
+                            <td style='padding: 8px; border-bottom: 1px solid #eee;'>{$productName}</td>
+                        </tr>
+                        <tr>
+                            <td style='padding: 8px; border-bottom: 1px solid #eee;'><strong>Remaining Stock:</strong></td>
+                            <td style='padding: 8px; border-bottom: 1px solid #eee; color: #d9534f; font-weight: bold;'>{$currentStock}</td>
+                        </tr>
+                    </table>
+
+                    <p>Please review your inventory levels and take the necessary action to initiate a reorder if required.</p>
+                    
+                    <hr style='border: 0; border-top: 1px solid #eee; margin: 20px 0;'>
+                    
+                    <p style='font-size: 12px; color: #777;'>
+                        <em>This is an automated message from the Inventory Management System. Please do not reply to this email, as this inbox is not monitored.</em>
+                    </p>
+                </div>
+            ";
             $mail->send();
             
         } catch (Exception $e) {
@@ -423,7 +447,7 @@ private function sendLowStockEmail($productName, $currentStock)
             Log::error("General Error: " . $e->getMessage());
         }
     }
-public function manage()
+    public function manage()
     {
         // Fetch all sales, eager loading relations like 'customer' or 'user' if needed
         // The user requested to show all invoices in the manage section.

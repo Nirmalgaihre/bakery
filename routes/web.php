@@ -4,13 +4,15 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Auth\LoginController;
 use App\Exports\ProductsExport;
+use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\AiAssistantController;
+use App\Http\Controllers\Admin\TransactionController; // Ensure this matches the file location
 use App\Http\Controllers\Admin\{
     DashboardController, CustomerController, ProductController as AdminProductController,
     SectorCategoryController, StockController, InventoryMovementController,
     InvoiceController, ChequeController, SalesController, BackupController, WastageController,
     SalesDashboardController, CustomerLedgerController, StaffController, RoleController,
-    PurchaseDashboardController, ActivityLogController
+    PurchaseDashboardController, SupplierController,ActivityLogController
 };
 
 
@@ -54,8 +56,9 @@ Route::middleware(['web', 'auth', 'verified'])->prefix('admin')->name('admin.')-
         Route::get('customers/{customer}/edit', [CustomerController::class, 'edit'])->name('customers.edit');
         Route::put('customers/{customer}', [CustomerController::class, 'update'])->name('customers.update');
         Route::delete('customers/{customer}', [CustomerController::class, 'destroy'])->name('customers.destroy');
-Route::get('customers/{customer}/monthly-summary', [CustomerController::class, 'monthlySummary'])->name('customers.monthly-summary');
-Route::get('customers/{customer}/month/{month}', [CustomerController::class, 'monthInvoices'])->name('customers.month-invoices');
+        Route::get('customers/{customer}/monthly-summary', [CustomerController::class, 'monthlySummary'])->name('customers.monthly-summary');
+        Route::get('customers/{customer}/month/{month}', [CustomerController::class, 'monthInvoices'])->name('customers.month-invoices');
+
         // Products (manage)
         Route::get('products/create', [AdminProductController::class, 'create'])->name('products.create');
         Route::post('products', [AdminProductController::class, 'store'])->name('products.store');
@@ -68,27 +71,23 @@ Route::get('customers/{customer}/month/{month}', [CustomerController::class, 'mo
         Route::post('products/import', [AdminProductController::class, 'import'])->name('products.import');
         Route::get('products/import/template', [AdminProductController::class, 'importTemplate'])->name('products.import.template');
 
-       // ... inside the admin group (around line 35)
-        Route::middleware(['role:admin'])->group(function () {
-            
-            // ... existing routes ...
+        // Categories (manage)
+        Route::post('categories', [SectorCategoryController::class, 'store'])->name('categories.store');
+        Route::get('categories/{category}/edit', [SectorCategoryController::class, 'edit'])->name('categories.edit');
+        Route::put('categories/{category}', [SectorCategoryController::class, 'update'])->name('categories.update');
+        Route::delete('categories/{category}', [SectorCategoryController::class, 'destroy'])->name('categories.destroy');
 
-            // Categories (manage)
-            Route::post('categories', [SectorCategoryController::class, 'store'])->name('categories.store');
-            Route::get('categories/{category}/edit', [SectorCategoryController::class, 'edit'])->name('categories.edit');
-            Route::put('categories/{category}', [SectorCategoryController::class, 'update'])->name('categories.update');
-            Route::delete('categories/{category}', [SectorCategoryController::class, 'destroy'])->name('categories.destroy');
+        Route::get('trash', [App\Http\Controllers\Admin\TrashController::class, 'index'])->name('trash.index');
 
-            // ADD IT HERE:
-            Route::get('trash', [App\Http\Controllers\Admin\TrashController::class, 'index'])->name('trash.index');
-
-            // ... existing routes ...
-        });
         // Inventory Management (manage)
         Route::prefix('inventory')->name('inventory.')->group(function () {
             Route::get('/add', [App\Http\Controllers\Admin\InventoryMovementController::class, 'createAddStock'])->name('add');
             Route::get('/add-stock/{product}', [StockController::class, 'create'])->name('create');
             Route::post('/store/{product}', [StockController::class, 'store'])->name('store');
+            // Route for receiving new stock (creates StockReceipts and StockBatches)
+            // Route::get('/receive', [App\Http\Controllers\Admin\StockReceiptController::class, 'create'])->name('receive'); // Form to add stock
+            // Route::post('/receive', [App\Http\Controllers\Admin\StockReceiptController::class, 'store'])->name('receive.store'); // Store new stock
+
             Route::get('/adjust/{product}', [InventoryMovementController::class, 'create'])->name('adjust.create');
             Route::post('/adjust/{product}', [InventoryMovementController::class, 'store'])->name('adjust.store');
         });
@@ -111,7 +110,7 @@ Route::get('customers/{customer}/month/{month}', [CustomerController::class, 'mo
             Route::get('/pos/{product?}', [SalesController::class, 'createSale'])->name('pos.create');
             Route::post('/{id}/update-payment', [SalesController::class, 'updatePayment'])->name('update-payment');
             Route::get('/manage', [SalesController::class, 'manage'])->name('manage');
-            });
+        });
 
         // Cheques Management (manage)
         Route::prefix('cheques')->name('cheques.')->group(function () {
@@ -175,7 +174,7 @@ Route::get('customers/{customer}/month/{month}', [CustomerController::class, 'mo
 
         // Inventory (view only)
         Route::prefix('inventory')->name('inventory.')->group(function () {
-            Route::get('/', [SalesController::class, 'showInventoryProducts'])->name('index'); 
+            Route::get('/', [SalesController::class, 'showInventoryProducts'])->name('index');
             Route::get('/position', [App\Http\Controllers\Admin\InventoryMovementController::class, 'stockPosition'])->name('position');
             Route::get('/low-stock', [InventoryMovementController::class, 'manageLowStock'])->name('manageLowStock');
             Route::get('/low-stock-manager', [InventoryMovementController::class, 'manageLowStock'])->name('low_stock_manager');
@@ -189,11 +188,12 @@ Route::get('customers/{customer}/month/{month}', [CustomerController::class, 'mo
             Route::get('/view/{invoice}', [InvoiceController::class, 'showWebInvoice'])->name('show_web');
         });
 
-        // Reports & Customer Search Routes (view only)
         Route::prefix('reports')->name('reports.')->group(function () {
-            Route::get('/', [App\Http\Controllers\Admin\ReportController::class, 'index'])->name('index');
-            Route::get('/cash-flow', [App\Http\Controllers\Admin\ReportController::class, 'cashFlowReport'])->name('cash-flow');
-            Route::get('/stock-movement', [App\Http\Controllers\Admin\ReportController::class, 'stockMovementReport'])->name('stock-movement');
+            Route::get('/', [ReportController::class, 'index'])->name('index');
+            Route::get('/cash-flow', [ReportController::class, 'cashFlowReport'])->name('cash-flow');
+            Route::get('/stock-ageing', [InventoryMovementController::class, 'stockAgeing'])->name('stock_ageing');
+            Route::get('/monthly-movement', [InventoryMovementController::class, 'monthlyMovementReport'])->name('monthly-movement');
+            Route::get('/stock-movement', [InventoryMovementController::class, 'stockMovementReport'])->name('stock-movement');
         });
 
         // Sales & POS (view only)
@@ -203,6 +203,7 @@ Route::get('customers/{customer}/month/{month}', [CustomerController::class, 'mo
             Route::get('/ledger-by-phone/{phone}', [CustomerLedgerController::class, 'showByPhone'])->name('customer-ledger-by-phone');
             Route::get('/ledger/{customerId}', [CustomerLedgerController::class, 'showCustomerLedger'])->name('customer-ledger');
             Route::get('/customer/{id}', [CustomerLedgerController::class, 'showCustomerLedger'])->name('customer-ledger-old');
+            Route::get('/product-traceability/{product}', [App\Http\Controllers\Admin\ProductTraceabilityController::class, 'productTraceability'])->name('product_traceability');
             Route::get('/logs', [InventoryMovementController::class, 'salesIndex'])->name('index');
             Route::get('/invoices/print/{invoice}', [InvoiceController::class, 'printInvoicePDF'])->name('invoices.print');
             Route::get('/all', [SalesController::class, 'index'])->name('all');
@@ -244,6 +245,13 @@ Route::get('customers/{customer}/month/{month}', [CustomerController::class, 'mo
         // User Guide (view only)
         Route::get('/user-guide', [App\Http\Controllers\Admin\DashboardController::class, 'guide'])->name('user-guide');
 
+        // Transactions
+        Route::prefix('transactions')->name('transactions.')->group(function () {
+            Route::get('/', [TransactionController::class, 'index'])->name('index');
+            Route::post('/', [TransactionController::class, 'store'])->name('store');
+            Route::get('/report/movement/{productId}', [TransactionController::class, 'showReport'])->name('report.movement');
+        });
+
         // Backup Management (view only)
         Route::prefix('backups')->name('backups.')->group(function () {
             Route::get('/', [BackupController::class, 'index'])->name('index');
@@ -259,6 +267,25 @@ Route::get('customers/{customer}/month/{month}', [CustomerController::class, 'mo
         Route::get('logs', [ActivityLogController::class, 'index'])->name('logs.index');
         Route::get('logs/{id}', [ActivityLogController::class, 'show'])->name('logs.show');
         Route::post('/ai/query', [AiAssistantController::class, 'query'])->name('ai.query');
+
+        // Consolidated Suppliers Management
+        Route::prefix('suppliers')->name('suppliers.')->group(function () {
+            // Admin Only (Management Actions)
+            Route::middleware(['role:admin'])->group(function () {
+          Route::get('/create', [SupplierController::class, 'create'])->name('create');
+Route::post('/', [SupplierController::class, 'store'])->name('store');
+Route::get('/{supplier}/edit', [SupplierController::class, 'edit'])->name('edit');
+Route::put('/{supplier}', [SupplierController::class, 'update'])->name('update');
+Route::delete('/{supplier}', [SupplierController::class, 'destroy'])->name('destroy');
+Route::get('/', [SupplierController::class, 'index'])->name('index');
+Route::get('/{supplier}', [SupplierController::class, 'show'])->name('show');});
+
+            // Admin & Accountant (View Actions)
+            Route::middleware(['role:admin|accountant'])->group(function () {
+                Route::get('/', [SupplierController::class, 'index'])->name('index');
+                Route::get('/{supplier}', [SupplierController::class, 'show'])->name('show');
+            });
+        });
     });
-    
+
 });

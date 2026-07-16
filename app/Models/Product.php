@@ -10,42 +10,53 @@ use App\Notifications\LowStockAlert;
 
 class Product extends Model
 {
-   protected $fillable = [
-    'name',
-    'category',
-    'category_id', // Ensure this exists if you are storing the ID
-    'purchase_cost',
-    'selling_price',
-    'inventory_unit',
-    'initial_stock',
-    'stock',
-    'alert_stock_level',
-    'alert_sent',
-    'item_code', // New
-    'color',     // New
-    'size',      // New
-];
+    protected $fillable = [
+        'name',
+        'category_id', // Recommended to keep only the ID
+        'supplier_id', // ADDED: New field for supplier association
+        'purchase_cost',
+        'selling_price',
+        'inventory_unit',
+        'initial_stock',
+        'stock',
+        'alert_stock_level',
+        'alert_sent',
+        'item_code',
+        'color',
+        'size',
+    ];
 
-    public function transactions()
+    /**
+     * Relationship: The supplier that provides this product.
+     */
+    public function supplier()
     {
-        return $this->hasMany(\App\Models\StockTransaction::class);
+        return $this->belongsTo(Supplier::class, 'supplier_id');
+    }
+
+    /**
+     * Relationship: The category of the product.
+     */
+    public function category()
+{
+    return $this->belongsTo(SectorCategory::class, 'category_id');
+}
+
+    public function transactions() 
+    {
+        return $this->hasMany(Transaction::class, 'product_id');
     }
 
     protected static function booted()
     {
         static::saved(function ($product) {
             if ($product->initial_stock <= $product->alert_stock_level && !$product->alert_sent) {
-
                 $adminUsers = User::where('role', 'admin')->get();
-
                 if ($adminUsers->isNotEmpty()) {
                     Notification::send($adminUsers, new LowStockAlert($product));
                 }
-
                 $product->updateQuietly(['alert_sent' => true]);
-
             } elseif ($product->initial_stock > $product->alert_stock_level && $product->alert_sent) {
-
                 $product->updateQuietly(['alert_sent' => false]);
             }
         });
@@ -54,9 +65,7 @@ class Product extends Model
     public function checkAndSendAlert()
     {
         if ($this->initial_stock <= $this->alert_stock_level) {
-
             $cacheKey = 'low_stock_alert_' . $this->id;
-
             if (!Cache::has($cacheKey)) {
                 $adminEmail = 'gaihrenirmal2021@gmail.com';
                 $productName = $this->name;
@@ -67,13 +76,23 @@ class Product extends Model
                         $message->to($adminEmail)->subject('Low Stock Alert: ' . $productName);
                     }
                 );
-
                 Cache::put($cacheKey, true, now()->addHours(24));
             }
         }
     }
+
     public function invoiceItems()
-{
-    return $this->hasMany(InvoiceItem::class);
-}
+    {
+        return $this->hasMany(InvoiceItem::class, 'product_id', 'id');
+    }
+
+    public function purchases()
+    {
+        return $this->hasMany(Purchase::class, 'item_name', 'name');
+    }
+
+    public function inventoryAdjustments()
+    {
+        return $this->hasMany(InventoryAdjustment::class, 'product_id', 'id');
+    }
 }

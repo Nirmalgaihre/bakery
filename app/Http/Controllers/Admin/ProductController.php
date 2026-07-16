@@ -4,11 +4,12 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\SectorCategory; 
-use App\Models\Product;       
+use App\Models\SectorCategory; // This is your actual category model
+use App\Models\Product;
+use App\Models\Supplier;
 use App\Exports\ProductsExport;
 use App\Imports\ProductsImport;
-use Maatwebsite\Excel\Facades\Excel; 
+use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Validators\ValidationException;
 
@@ -29,48 +30,52 @@ class ProductController extends Controller
 
     public function create()
     {
-        $categories = SectorCategory::orderBy('name', 'asc')->get();
-        return view('admin.products.create', compact('categories'));
+        $categories = SectorCategory::all();
+        $suppliers = Supplier::all();
+
+        return view('admin.products.create', compact('categories', 'suppliers'));
     }
 
     public function show($id)
     {
         return redirect()->route('admin.products.index');
     }
-public function store(Request $request)
-{
-    $validated = $request->validate([
-        'item_code'         => 'required|string|max:50|unique:products,item_code',
-        'name'              => 'required|string|max:255|unique:products,name',
-        'category_id'       => 'required|string|max:255', 
-        'color'             => 'nullable|string|max:50',
-        'size'              => 'nullable|string|max:50',
-        'purchase_cost'     => 'required|numeric|min:0',
-        'selling_price'     => 'required|numeric|min:0',
-        'inventory_unit'    => 'required|string|in:kg,paau,bottle,cartoon,boxes',
-        'initial_stock'     => 'required|numeric|min:0', 
-        'alert_stock_level' => 'required|integer|min:0',
-    ]);
 
-    \App\Models\Product::create([
-        'item_code'         => $validated['item_code'],
-        'name'              => $validated['name'],
-        'category_id'       => $validated['category_id'], // Now stores 'cat-oki'
-        'category'          => $validated['category_id'], // Storing the same string
-        'color'             => $validated['color'],
-        'size'              => $validated['size'],
-        'purchase_cost'     => $validated['purchase_cost'],
-        'selling_price'     => $validated['selling_price'],
-        'inventory_unit'    => $validated['inventory_unit'],
-        'initial_stock'     => $validated['initial_stock'], 
-        'stock'             => $validated['initial_stock'],
-        'alert_stock_level' => $validated['alert_stock_level'],
-        'alert_sent'        => false,
-    ]);
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'item_code'         => 'required|string|max:50|unique:products,item_code',
+            'name'              => 'required|string|max:255|unique:products,name',
+            'category_id'       => 'required|exists:sector_categories,id', // Validating against correct table
+            'supplier_id'       => 'nullable|exists:suppliers,id',
+            'color'             => 'nullable|string|max:50',
+            'size'              => 'nullable|string|max:50',
+            'purchase_cost'     => 'required|numeric|min:0',
+            'selling_price'     => 'required|numeric|min:0',
+            'inventory_unit'    => 'required|string|in:kg,paau,bottle,cartoon,boxes',
+            'initial_stock'     => 'required|numeric|min:0',
+            'alert_stock_level' => 'required|integer|min:0',
+        ]);
 
-    return redirect()->route('admin.products.index')
-                     ->with('success', 'Product registered successfully!');
-}
+        Product::create([
+            'item_code'         => $validated['item_code'],
+            'name'              => $validated['name'],
+            'category_id'       => $validated['category_id'],
+            'supplier_id'       => $validated['supplier_id'] ?? null,
+            'purchase_cost'     => $validated['purchase_cost'],
+            'selling_price'     => $validated['selling_price'],
+            'inventory_unit'    => $validated['inventory_unit'],
+            'initial_stock'     => $validated['initial_stock'],
+            'stock'             => $validated['initial_stock'],
+            'alert_stock_level' => $validated['alert_stock_level'],
+            'alert_sent'        => false,
+            'color'             => $validated['color'],
+            'size'              => $validated['size'],
+        ]);
+
+        return redirect()->route('admin.products.index')->with('success', 'Product registered successfully!');
+    }
+
     public function edit(Product $product)
     {
         return view('admin.products.edit', compact('product'));
@@ -80,7 +85,7 @@ public function store(Request $request)
     {
         $extension = ($type === 'csv') ? 'csv' : 'xlsx';
         $writerType = ($type === 'csv') ? \Maatwebsite\Excel\Excel::CSV : \Maatwebsite\Excel\Excel::XLSX;
-        
+
         return Excel::download(new ProductsExport, 'products_registry_' . now()->format('Y-m-d') . '.' . $extension, $writerType);
     }
 
@@ -100,7 +105,7 @@ public function store(Request $request)
         ]);
 
         try {
-            $import = new \App\Imports\ProductsImport;
+            $import = new ProductsImport;
             Excel::import($import, $request->file('file'));
 
             $successMessage = 'Products imported successfully!';
@@ -115,7 +120,7 @@ public function store(Request $request)
                 }
                 return back()->with('error', $successMessage . "\nSome rows failed to import:\n" . implode("\n", $failureMessages));
             }
-            
+
             return back()->with('success', $successMessage);
 
         } catch (ValidationException $e) {
@@ -134,7 +139,7 @@ public function store(Request $request)
     public function importTemplate()
     {
         $headings = ['name', 'category', 'purchase_cost', 'selling_price', 'inventory_unit', 'initial_stock', 'current_stock', 'alert_stock_level'];
-        
+
         try {
             return Excel::download(
                 new class($headings) implements \Maatwebsite\Excel\Concerns\FromArray, \Maatwebsite\Excel\Concerns\WithHeadings {

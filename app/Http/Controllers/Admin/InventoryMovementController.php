@@ -15,6 +15,7 @@ use App\Models\Purchase; // <--- यो लाइन अनिवार्य �
 use Illuminate\Support\Facades\Mail;
 use Anuzpandey\LaravelNepaliDate\LaravelNepaliDate;
 use App\Mail\LowStockAlertMail;
+use App\Helpers\FiscalYearHelper;
 
 class InventoryMovementController extends Controller
 {
@@ -370,28 +371,155 @@ public function showWebInvoice($id)
 }
 public function stockPosition(Request $request)
 {
-    $fromDate = $request->input('from_date', '2025-07-17');
-    $toDate = $request->input('to_date', date('Y-m-d'));
+    // 1. Get requested fiscal year or default to current
+    $fiscalYear = $request->input('fiscal_year', FiscalYearHelper::getCurrentFiscalYear());
+    
+    // 2. Determine date range from the Helper
+    $range = FiscalYearHelper::getFiscalYearDateRange($fiscalYear);
+    $fromDate = $range['ad_start'];
+    $toDate = $range['ad_end'];
 
+    // 3. Retrieve products with summed data
     $stockReport = \App\Models\Product::query()
-        ->leftJoin('stock_transactions as st', function($join) use ($fromDate, $toDate) {
-            $join->on('products.id', '=', 'st.product_id')
-                 ->whereBetween('st.created_at', [$fromDate . ' 00:00:00', $toDate . ' 23:59:59']);
-        })
-        ->leftJoin('inventory_adjustments as ia', function($join) use ($fromDate, $toDate) {
-            $join->on('products.id', '=', 'ia.product_id')
-                 ->whereBetween('ia.created_at', [$fromDate . ' 00:00:00', $toDate . ' 23:59:59']);
-        })
-        ->select(
-            'products.id', 'products.name', 'products.item_code', 'products.color', 
-            'products.size', 'products.inventory_unit', 'products.initial_stock', 'products.purchase_cost',
-            DB::raw("COALESCE(SUM(CASE WHEN st.type = 'purchase' THEN st.quantity ELSE 0 END), 0) as total_purchase"),
-            DB::raw("COALESCE(SUM(CASE WHEN st.type = 'sale' THEN st.quantity ELSE 0 END), 0) as total_sale"),
-            DB::raw("COALESCE(SUM(ia.quantity), 0) as total_adjustment")
-        )
-        ->groupBy('products.id', 'products.name', 'products.item_code', 'products.color', 'products.size', 'products.inventory_unit', 'products.initial_stock', 'products.purchase_cost')
+        ->select('id', 'name', 'item_code', 'purchase_cost', 'initial_stock', 'inventory_unit')
+        
+        ->withSum(['purchases as total_purchase' => function($q) use ($fromDate, $toDate) {
+            $q->whereBetween('purchase_date', [$fromDate, $toDate]);
+        }], 'quantity') 
+        
+        ->withSum(['purchases as total_purchase_value' => function($q) use ($fromDate, $toDate) {
+            $q->whereBetween('purchase_date', [$fromDate, $toDate]);
+        }], 'total_amount')
+        
+        ->withSum(['invoiceItems as total_sale' => function($q) use ($fromDate, $toDate) {
+            $q->whereHas('invoice', function($inv) use ($fromDate, $toDate) {
+                $inv->whereBetween('invoice_date', [$fromDate, $toDate]);
+            });
+        }], 'qty') 
+        
+        ->withSum(['inventoryAdjustments as total_adjustment' => function($q) use ($fromDate, $toDate) {
+            $q->whereBetween('created_at', [$fromDate . ' 00:00:00', $toDate . ' 23:59:59']);
+        }], 'quantity')
         ->get();
 
-    return view('admin.inventory.position', compact('stockReport', 'fromDate', 'toDate'));
+    // 4. Calculate totals
+    $totals = [
+        'opening' => $stockReport->sum('initial_stock'),
+        'purchase_qty' => $stockReport->sum('total_purchase'),
+        'purchase_val' => $stockReport->sum('total_purchase_value'),
+        'sale' => $stockReport->sum('total_sale'),
+        'adjustment' => $stockReport->sum('total_adjustment'),
+        'balance_qty' => $stockReport->sum(function($i) {
+            return $i->initial_stock + ($i->total_purchase ?? 0) - ($i->total_sale ?? 0) + ($i->total_adjustment ?? 0);
+        }),
+        'balance_value' => $stockReport->sum(function($i) {
+            $qty = $i->initial_stock + ($i->total_purchase ?? 0) - ($i->total_sale ?? 0) + ($i->total_adjustment ?? 0);
+            return $qty * ($i->purchase_cost ?? 0);
+        }),
+    ];
+
+    // 5. Return view with fiscal year context
+    return view('admin.inventory.position', [
+        'stockReport'        => $stockReport,
+        'selectedFiscalYear' => $fiscalYear,
+        'fromDate'           => $range['bs_start'], // Nepali Date string for display
+        'toDate'             => $range['bs_end'],   // Nepali Date string for display
+        'totals'             => $totals
+    ]);
 }
+public function stockAgeing(Request $request)
+{
+    // Default intervals if not provided
+    $s1 = (int) $request->input('s1', 30);
+    $s2 = (int) $request->input('s2', 60);
+    $s3 = (int) $request->input('s3', 90);
+
+    // Get all products with their purchases
+    $products = \App\Models\Product::with('purchases')->get();
+
+    $reportData = $products->map(function ($product) use ($s1, $s2, $s3) {
+        $slabs = ['s1' => ['q' => 0, 'v' => 0], 's2' => ['q' => 0, 'v' => 0], 
+                  's3' => ['q' => 0, 'v' => 0], 's4' => ['q' => 0, 'v' => 0]];
+
+        foreach ($product->purchases as $p) {
+            $daysOld = now()->diffInDays($p->purchase_date);
+            $qty = $p->quantity;
+            $val = $qty * $p->price_per_unit;
+
+            if ($daysOld < $s1) { $slabs['s1']['q'] += $qty; $slabs['s1']['v'] += $val; }
+            elseif ($daysOld < $s2) { $slabs['s2']['q'] += $qty; $slabs['s2']['v'] += $val; }
+            elseif ($daysOld < $s3) { $slabs['s3']['q'] += $qty; $slabs['s3']['v'] += $val; }
+            else { $slabs['s4']['q'] += $qty; $slabs['s4']['v'] += $val; }
+        }
+
+        return [
+            'name' => $product->name,
+            'total_qty' => $product->purchases->sum('quantity'),
+            'slabs' => $slabs
+        ];
+    });
+
+    return view('admin.products.stock_ageing', compact('reportData', 's1', 's2', 's3'));
 }
+    public function monthlyMovementReport(Request $request)
+    {
+        $year = $request->input('year', date('Y'));
+        $initialStocks = Product::pluck('initial_stock', 'name');
+
+        $inward = DB::table('purchases')
+            ->select(DB::raw('MONTH(purchase_date) as month'), 'item_name as product', 
+                     DB::raw('SUM(quantity) as qty'), DB::raw('SUM(total_amount) as total_val'), DB::raw("'Inward' as type"))
+            ->whereYear('purchase_date', $year)->groupBy('month', 'item_name');
+
+        $outward = DB::table('invoice_items')
+            ->select(DB::raw('MONTH(created_at) as month'), 'product_name as product', 
+                     DB::raw('SUM(qty) as qty'), DB::raw('SUM(total) as total_val'), DB::raw("'Outward' as type"))
+            ->whereYear('created_at', $year)->groupBy('month', 'product_name');
+
+        $movements = $inward->unionAll($outward)->get()->groupBy('month');
+
+        return view('admin.products.monthly_movement', compact('movements', 'year', 'initialStocks'));
+    }
+
+    public function stockMovementReport(Request $request)
+    {
+        $query = InventoryAdjustment::with('product');
+
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $query->whereBetween('created_at', [$request->start_date, $request->end_date]);
+        }
+
+        $movements = $query->latest()->paginate(20);
+        $year = null; 
+
+        return view('admin.products.monthly_movement', compact('movements', 'year'));
+    }
+
+public function productTraceability($id)
+    {
+        $product = Product::findOrFail($id);
+
+        $inwards = Purchase::where('item_name', $product->name)
+            ->orderBy('purchase_date', 'desc')->get();
+
+        $outwards = InvoiceItem::where('product_name', $product->name)
+            ->with('invoice.customer')
+            ->orderBy('created_at', 'desc')->get();
+
+        return view('admin.products.product_traceability', compact('product', 'inwards', 'outwards'));
+    }
+
+    public function getProductTraceability($productId)
+{
+    $product = \App\Models\Product::findOrFail($productId);
+
+    $inwards = \App\Models\Purchase::where('item_name', $product->name)
+        ->orderBy('purchase_date', 'desc')->get();
+
+    $outwards = \App\Models\InvoiceItem::where('product_name', $product->name)
+        ->with('invoice.customer')->orderBy('created_at', 'desc')->get();
+
+    return view('admin.products.product_traceability', compact('product', 'inwards', 'outwards'));
+}
+        
+    }

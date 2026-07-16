@@ -29,9 +29,9 @@ protected function schedule(Schedule $schedule)
         ->dailyAt('07:00');
 
     // Second command
-    $schedule->command('backup:daily')
-        ->dailyAt('19:00')
-        ->withoutOverlapping();
+        $schedule->command('backup:daily')
+            ->dailyAt('19:00')
+            ->withoutOverlapping();
 }
 
     /**
@@ -45,4 +45,5 @@ protected function schedule(Schedule $schedule)
 
         require base_path('routes/console.php');
     }
+    
 }

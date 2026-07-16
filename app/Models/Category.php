@@ -1,5 +1,5 @@
 <?php
-
+namespace App\Models; // <--- It must be this!
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
