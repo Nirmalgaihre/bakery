@@ -13,8 +13,9 @@ class Kernel extends ConsoleKernel
      * @var array
      */
     protected $commands = [
-    \App\Console\Commands\SendChequeReminder::class,
-];
+        \App\Console\Commands\SendChequeReminder::class,
+        \App\Console\Commands\RunDailyBackup::class,
+    ];
 
     /**
      * Define the application's command schedule.
@@ -22,17 +23,20 @@ class Kernel extends ConsoleKernel
      * @param  \Illuminate\Console\Scheduling\Schedule  $schedule
      * @return void
      */
-protected function schedule(Schedule $schedule)
-{
-    // First command
-    $schedule->command('cheque:reminder')
-        ->dailyAt('07:00');
+    protected function schedule(Schedule $schedule)
+    {
+        // Cheque reminder at 8:00 AM daily
+        $schedule->command('cheque:reminder')
+            ->dailyAt('08:00')
+            ->withoutOverlapping()
+            ->onOneServer();
 
-    // Second command
+        // Daily backup at 8:00 PM (20:00) daily
         $schedule->command('backup:daily')
-            ->dailyAt('19:00')
-            ->withoutOverlapping();
-}
+            ->dailyAt('20:00')
+            ->withoutOverlapping()
+            ->onOneServer();
+    }
 
     /**
      * Register the commands for the application.
@@ -45,5 +49,4 @@ protected function schedule(Schedule $schedule)
 
         require base_path('routes/console.php');
     }
-    
 }

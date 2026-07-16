@@ -4,17 +4,20 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Backup extends Model
+class BackupImport extends Model
 {
     protected $fillable = [
         'filename',
-        'scope',
-        'size',
+        'original_name',
         'path',
-        'created_by'
+        'status',
+        'uploaded_by',
+        'error_message',
+        'completed_at',
     ];
 
     protected $casts = [
+        'completed_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

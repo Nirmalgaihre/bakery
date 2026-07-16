@@ -15,160 +15,227 @@ use PHPMailer\PHPMailer\Exception;
 use PHPMailer\PHPMailer\SMTP;
 use Illuminate\Support\Facades\Hash;
 
-// --- PLACE YOUR REQUIRE_ONCE STATEMENTS HERE ---
+// --- PHPMailer requires ---
 require_once app_path('Libraries/PHPMailer/Exception.php');
 require_once app_path('Libraries/PHPMailer/PHPMailer.php');
 require_once app_path('Libraries/PHPMailer/SMTP.php');
 
 class LoginController extends Controller
 {
-    public function showLoginForm() { return view('auth.login'); }
-public function login(Request $request)
-{
-    // 1. Rate Limiting (Prevent Brute Force)
-    $throttleKey = 'login-attempt:' . $request->ip();
-    if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
-        return back()->withErrors(['email' => 'Too many attempts. Please try again later.']);
+    public function showLoginForm()
+    {
+        return view('auth.login');
     }
 
-    $request->validate(['email' => 'required|email', 'password' => 'required']);
+    public function login(Request $request)
+    {
+        $throttleKey = 'login-attempt:' . $request->ip();
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            return back()->withErrors(['email' => 'Too many attempts. Please try again later.']);
+        }
 
-    // 2. Auth::validate uses Hashed passwords and secure bindings
-    if (Auth::validate(['email' => $request->email, 'password' => $request->password])) {
-        
-        // Clear rate limiter on success
-        RateLimiter::clear($throttleKey);
-
-        // 3. Regenerate session to prevent fixation
-        $request->session()->regenerate();
-
-        $otp = random_int(100000, 999999); // Use random_int for crypto-secure numbers
-        
-        session([
-            'otp' => $otp,
-            'otp_email' => $request->email, // Use unique keys
-            'otp_expires_at' => now()->addMinutes(10)
+        $request->validate([
+            'email' => 'required|email|exists:users,email',
+            'password' => 'required',
         ]);
 
-        $this->sendOtpEmail($request->email, $otp);
-        return redirect()->route('otp.view')->with('status', 'Verification code sent.');
-    }
+        if (Auth::validate(['email' => $request->email, 'password' => $request->password])) {
+            RateLimiter::clear($throttleKey);
+            $request->session()->regenerate();
 
-    // Record failed attempt
-    RateLimiter::hit($throttleKey, 60);
-    return back()->withErrors(['email' => 'Invalid credentials.']);
-}
+            $otp = random_int(100000, 999999);
+
+            session([
+                'otp' => $otp,
+                'otp_email' => $request->email,
+                'otp_expires_at' => now()->addMinutes(10),
+                'otp_verified' => false, // newly added flag
+            ]);
+
+            $this->sendOtpEmail($request->email, $otp);
+            return redirect()->route('otp.view')->with('status', 'Verification code sent.');
+        }
+
+        RateLimiter::hit($throttleKey, 60);
+        return back()->withErrors(['email' => 'Invalid credentials.']);
+    }
 
     private function sendOtpEmail($email, $otp)
-    {
-        $mail = new PHPMailer(true);
-        $mail->isSMTP();
-        $mail->Host       = config('mail.mailers.smtp.host');
-        $mail->SMTPAuth   = true;
-        $mail->Username   = config('mail.mailers.smtp.username');
-        $mail->Password   = config('mail.mailers.smtp.password');
-        $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
-        $mail->Port       = 465;
-        $mail->setFrom(config('mail.from.address'), config('mail.from.name'));
-        $mail->addAddress($email);
-        $mail->isHTML(true);
-        $mail->Subject = 'Security Verification Code';
-        $mail->Body    = "
-<div style='font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;'>
-    <div style='background-color: #2c3e50; padding: 20px; text-align: center; color: #ffffff;'>
-        <h2 style='margin: 0;'>Deurali Chemicals</h2>
-    </div>
-    <div style='padding: 30px;'>
-        <p style='font-size: 16px; color: #333;'>Hello,</p>
-        <p style='font-size: 16px; color: #333;'>We received a request to verify your account. Please use the following code to complete your verification:</p>
-        
-        <div style='text-align: center; margin: 30px 0;'>
-            <span style='font-size: 32px; font-weight: bold; color: #2c3e50; background: #f4f4f4; padding: 10px 25px; border-radius: 5px; letter-spacing: 5px;'>{$otp}</span>
-        </div>
-        
-        <p style='font-size: 14px; color: #777;'>This code will expire in <strong>10 minutes</strong>. If you did not initiate this request, please ignore this email or contact support immediately.</p>
-    </div>
-    <div style='background-color: #f9f9f9; padding: 15px; text-align: center; font-size: 12px; color: #999;'>
-        &copy; " . date("Y") . " Deurali Chemicals. All rights reserved.
-    </div>
-</div>";
-        $mail->send();
-    }
-
-    public function showOtpForm() { return view('auth.otp'); }
-
-    public function verifyOtp(Request $request)
-{
-    // 1. Verify OTP and Expiration
-    if ($request->otp == session('otp') && session('otp_expires_at') && now()->lt(session('otp_expires_at'))) {
-        
-        // 2. Retrieve user using the correct session key 'otp_email'
-        $user = User::where('email', session('otp_email'))->first();
-
-        // 3. Ensure user exists before attempting login
-        if ($user) {
-            Auth::login($user);
-            session()->forget(['otp', 'otp_email', 'otp_expires_at']);
-            return redirect('/admin/dashboard');
-        }
-    }
-    
-    return back()->withErrors(['otp' => 'Invalid or expired OTP.']);
-}
-
-
-    public function showForgotPasswordForm() {
-    return view('auth.forgot-password');
-}
-public function sendResetLink(Request $request)
-{
-    $request->validate(['email' => 'required|email|exists:users,email']);
-
-    $token = Str::random(60);
-
-    DB::table('password_resets')->updateOrInsert(
-        ['email' => $request->email],
-        ['token' => $token, 'created_at' => Carbon::now()]
-    );
-
-    $resetLink = url('/password/reset/' . $token . '?email=' . urlencode($request->email));
-
-    $this->sendMail($request->email, 'Reset Your Password', 
-        "Click here to reset your password: <a href='{$resetLink}'>{$resetLink}</a>");
-
-    // अब सिधै auth फोल्डर भित्रको फाइल कल गर्छ
-    return view('auth.email-sent'); 
-}
-
-// Reusable Mailer Method
-private function sendMail($to, $subject, $body)
 {
     $mail = new PHPMailer(true);
     $mail->isSMTP();
-    $mail->Host       = env('MAIL_HOST');
+    $mail->Host       = config('mail.mailers.smtp.host');
     $mail->SMTPAuth   = true;
-    $mail->Username   = env('MAIL_USERNAME');
-    $mail->Password   = env('MAIL_PASSWORD');
-    $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS; // Changed for port 587
-    $mail->Port       = env('MAIL_PORT');
-    
-    $mail->setFrom(env('MAIL_FROM_ADDRESS'), env('MAIL_FROM_NAME'));
-    $mail->addAddress($to);
+    $mail->Username   = config('mail.mailers.smtp.username');
+    $mail->Password   = config('mail.mailers.smtp.password');
+    $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+    $mail->Port       = 465;
+    $mail->setFrom(config('mail.from.address'), config('mail.from.name'));
+    $mail->addAddress($email);
     $mail->isHTML(true);
-    $mail->Subject = $subject;
-    $mail->Body    = $body;
+    $mail->Subject = 'Verify Your Deurali Chemicals Account';
+    
+    $mail->Body = "
+    <div style='font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; max-width: 500px; margin: 40px auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background: #ffffff;'>
+        <!-- Header -->
+        <div style='background-color: #0f172a; padding: 30px; text-align: center;'>
+            <h1 style='color: #ffffff; margin: 0; font-size: 20px; letter-spacing: 0.5px;'>Deurali Chemicals</h1>
+        </div>
+        
+        <!-- Content -->
+        <div style='padding: 40px;'>
+            <h2 style='color: #1e293b; margin-top: 0;'>Verification Code</h2>
+            <p style='color: #64748b; line-height: 1.6;'>Hello,</p>
+            <p style='color: #64748b; line-height: 1.6;'>You are attempting to sign in to your Deurali Chemicals account. Please use the verification code below to proceed.</p>
+            
+            <div style='text-align: center; margin: 35px 0;'>
+                <div style='display: inline-block; font-size: 32px; font-weight: 800; color: #0f172a; background: #f8fafc; padding: 15px 30px; border-radius: 8px; border: 2px dashed #cbd5e1; letter-spacing: 8px;'>{$otp}</div>
+            </div>
+            
+            <p style='color: #64748b; font-size: 14px; line-height: 1.6;'>This code is valid for <strong>10 minutes</strong>. For your security, <strong>do not share this code</strong> with anyone.</p>
+            
+            <div style='margin-top: 30px; padding-top: 20px; border-top: 1px solid #f1f5f9;'>
+                <p style='color: #94a3b8; font-size: 13px;'>If you did not request this verification, please ignore this email. Your account remains secure and no changes have been made.</p>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div style='background-color: #f8fafc; padding: 20px; text-align: center; color: #94a3b8; font-size: 12px;'>
+            &copy; " . date('Y') . " Deurali Chemicals Pvt Ltd. All rights reserved.
+        </div>
+    </div>";
+
     $mail->send();
 }
 
-// १. रिसेट पेज देखाउने विधि
-public function showResetForm($token) {
-    return view('auth.reset-password', ['token' => $token]);
+    public function showOtpForm()
+    {
+        // Prevent direct access without OTP session
+        if (!session('otp') || !session('otp_email') || !session('otp_expires_at')) {
+            return redirect()->route('login')->withErrors(['otp' => 'Unauthorized access.']);
+        }
+        return view('auth.otp');
+    }
+
+    public function verifyOtp(Request $request)
+    {
+    if (!session('otp') || !session('otp_email') || !session('otp_expires_at')) {
+        return redirect()->route('login')->withErrors(['otp' => 'Unauthorized access. Please login again.']);
+    }
+
+    $request->validate([
+        'otp' => 'required|digits:6|numeric'
+    ], [
+        'otp.required' => 'Please enter the verification code.',
+        'otp.digits' => 'OTP must be exactly 6 digits.',
+        'otp.numeric' => 'OTP must contain only numbers.'
+    ]);
+
+    if ($request->otp == session('otp') && now()->lt(session('otp_expires_at'))) {
+        $user = User::where('email', session('otp_email'))->first();
+
+        if ($user) {
+            Auth::login($user);
+            
+            session()->forget(['otp', 'otp_email', 'otp_expires_at']);
+            
+            return redirect('/admin/dashboard')->with('status', 'Login successful! Welcome back.');
+        }
+    }
+
+    return redirect()->route('otp.view')->withErrors(['otp' => 'Invalid or expired OTP. Please try again.'])->withInput();
+    }
+
+    public function showForgotPasswordForm()
+    {
+        return view('auth.forgot-password');
+    }
+
+public function sendResetLink(Request $request)
+{
+    $request->validate(['email' => 'required|email']);
+
+    $user = User::where('email', $request->email)->first();
+
+    // SECURE: Always return success, even if user doesn't exist.
+    // This prevents attackers from finding valid accounts (Account Enumeration).
+    if ($user) {
+        $token = Str::random(60);
+        
+        DB::table('password_resets')->updateOrInsert(
+            ['email' => $request->email],
+            ['token' => Hash::make($token), 'created_at' => Carbon::now()]
+        );
+
+        $resetLink = url('/password/reset/' . $token . '?email=' . urlencode($request->email));
+
+        // Integrated professional template
+        $body = "
+        <div style='font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif; max-width: 500px; margin: 40px auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background: #ffffff;'>
+            <div style='background-color: #0f172a; padding: 30px; text-align: center;'>
+                <h1 style='color: #ffffff; margin: 0; font-size: 20px;'>Deurali Chemicals</h1>
+            </div>
+            <div style='padding: 40px;'>
+                <h2 style='color: #1e293b; margin-top: 0;'>Password Reset Request</h2>
+                <p style='color: #64748b; line-height: 1.6;'>We received a request to reset the password for your Deurali Chemicals account. If you did not make this request, please ignore this email.</p>
+                
+                <div style='text-align: center; margin: 30px 0;'>
+                    <a href='{$resetLink}' style='background-color: #0f172a; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;'>Reset Password</a>
+                </div>
+
+                <p style='color: #64748b; font-size: 13px;'>This link will expire in 30 minutes. If the button doesn't work, copy and paste this link into your browser:</p>
+                <p style='color: #3b82f6; font-size: 12px; word-break: break-all;'>{$resetLink}</p>
+            </div>
+            <div style='background-color: #f8fafc; padding: 20px; text-align: center; color: #94a3b8; font-size: 12px;'>
+                &copy; " . date('Y') . " Deurali Chemicals Pvt Ltd. All rights reserved.
+            </div>
+        </div>";
+
+        $this->sendMail($request->email, 'Reset Your Deurali Chemicals Password', $body);
+    }
+
+    return view('auth.email-sent');
 }
-public function resetPassword(Request $request)
+
+    private function sendMail($to, $subject, $body)
+    {
+        $mail = new PHPMailer(true);
+        $mail->isSMTP();
+        $mail->Host       = env('MAIL_HOST');
+        $mail->SMTPAuth   = true;
+        $mail->Username   = env('MAIL_USERNAME');
+        $mail->Password   = env('MAIL_PASSWORD');
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port       = env('MAIL_PORT');
+        
+        $mail->setFrom(env('MAIL_FROM_ADDRESS'), env('MAIL_FROM_NAME'));
+        $mail->addAddress($to);
+        $mail->isHTML(true);
+        $mail->Subject = $subject;
+        $mail->Body    = $body;
+        $mail->send();
+    }
+
+    public function showResetForm($token)
+    {
+        $email = request('email');
+        $record = DB::table('password_resets')
+            ->where('token', $token)
+            ->where('email', $email)
+            ->first();
+
+        if (!$record) {
+            abort(403, 'Invalid or expired reset link.');
+        }
+
+        return view('auth.reset-password', ['token' => $token, 'email' => $email]);
+    }
+
+    public function resetPassword(Request $request)
     {
         $request->validate([
             'token' => 'required',
-            'email' => 'required|email',
+            'email' => 'required|email|exists:users,email',
             'password' => 'required|min:6|confirmed',
         ], [
             'password.min' => 'Password must be at least 6 characters.',
@@ -192,13 +259,12 @@ public function resetPassword(Request $request)
 
         return redirect()->route('login')->with('status', 'Your password has been reset successfully!');
     }
+
     public function logout(Request $request)
     {
         Auth::logout();
-
         $request->session()->invalidate();
         $request->session()->regenerateToken();
-
         return redirect('/login');
     }
 }

@@ -2,102 +2,187 @@
 
 namespace App\Services;
 
-use ZipArchive;
-use Spatie\DbDumper\Databases\MySql;
-use Spatie\Backup\Tasks\Backup\BackupJobFactory;
-use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Carbon\Carbon;
 
 class BackupService
 {
-    /**
-     * Run the backup process.
-     *
-     * @param string $scope  'all', 'db_only', or 'files_only'
-     * @param string $prefix
-     * @return array
-     * @throws \Exception
-     */
-    public function run(string $scope = 'all', string $prefix = 'manual'): array
+    public function run($scope = 'all', $prefix = 'auto')
     {
-        $backupDir = storage_path('app/backups');
-        if (!File::exists($backupDir)) {
-            File::makeDirectory($backupDir, 0755, true);
+        $timestamp = Carbon::now()->format('Ymd_His');
+        $filename = sprintf('dc_pkg_%s_%s_%s.zip', $prefix, $scope, $timestamp);
+        $backupPath = storage_path('app/backups');
+        
+        // Ensure backup directory exists
+        if (!file_exists($backupPath)) {
+            mkdir($backupPath, 0755, true);
         }
 
-        $timestamp = now()->format('Ymd-His');
-        $baseFilename = sprintf(
-            'dc_pkg_%s_%s_%s',
-            Str::slug($prefix),
-            $scope,
-            $timestamp
+        $tempDir = storage_path('app/temp_backup_' . Str::random(10));
+        mkdir($tempDir, 0755, true);
+
+        try {
+            // Export database
+            if ($scope === 'all' || $scope === 'db_only') {
+                $this->exportDatabase($tempDir);
+            }
+
+            // Export files if full backup
+            if ($scope === 'all') {
+                $this->exportFiles($tempDir);
+            }
+
+            // Create ZIP archive
+            $zipPath = $backupPath . '/' . $filename;
+            $this->createZip($tempDir, $zipPath);
+
+            // Cleanup temp directory
+            $this->cleanup($tempDir);
+
+            return [
+                'filename' => $filename,
+                'path' => $zipPath,
+                'size' => $this->formatBytes(filesize($zipPath)),
+            ];
+
+        } catch (\Exception $e) {
+            // Cleanup on failure
+            $this->cleanup($tempDir);
+            throw $e;
+        }
+    }
+
+    private function exportDatabase($tempDir)
+    {
+        $dbConfig = config('database.connections.' . config('database.default'));
+        $sqlFile = $tempDir . '/database.sql';
+
+        // Get all table names
+        $tables = DB::select('SHOW TABLES');
+        $tableColumn = 'Tables_in_' . $dbConfig['database'];
+        
+        $sqlContent = "-- Database Backup\n";
+        $sqlContent .= "-- Generated: " . Carbon::now()->format('Y-m-d H:i:s') . "\n";
+        $sqlContent .= "-- Database: " . $dbConfig['database'] . "\n\n";
+        
+        foreach ($tables as $table) {
+            $tableName = $table->$tableColumn;
+            
+            // Skip Laravel internal tables if needed
+            if (in_array($tableName, ['migrations', 'cache', 'sessions', 'jobs', 'failed_jobs'])) {
+                continue;
+            }
+            
+            // Get table structure
+            $structure = DB::select("SHOW CREATE TABLE `{$tableName}`");
+            $sqlContent .= "-- Table: {$tableName}\n";
+            $sqlContent .= $structure[0]->{'Create Table'} . ";\n\n";
+            
+            // Get table data
+            $rows = DB::table($tableName)->get();
+            if ($rows->isNotEmpty()) {
+                foreach ($rows as $row) {
+                    $columns = array_keys((array)$row);
+                    $values = array_map(function($value) {
+                        if ($value === null) {
+                            return 'NULL';
+                        }
+                        return "'" . addslashes($value) . "'";
+                    }, (array)$row);
+                    
+                    $sqlContent .= "INSERT INTO `{$tableName}` (`" . implode('`, `', $columns) . "`) VALUES (" . implode(', ', $values) . ");\n";
+                }
+                $sqlContent .= "\n";
+            }
+        }
+
+        file_put_contents($sqlFile, $sqlContent);
+    }
+
+    private function exportFiles($tempDir)
+    {
+        $filesDir = $tempDir . '/files';
+        mkdir($filesDir, 0755, true);
+
+        // Copy important directories (adjust paths as needed)
+        $directoriesToBackup = [
+            storage_path('app/uploads') => 'uploads',
+            storage_path('app/documents') => 'documents',
+        ];
+
+        foreach ($directoriesToBackup as $source => $dest) {
+            if (is_dir($source)) {
+                $this->copyDirectory($source, $filesDir . '/' . $dest);
+            }
+        }
+    }
+
+    private function createZip($sourceDir, $zipPath)
+    {
+        $zip = new \ZipArchive();
+        
+        if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            throw new \Exception('Failed to create ZIP archive.');
+        }
+
+        $files = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($sourceDir),
+            \RecursiveIteratorIterator::LEAVES_ONLY
         );
-        $dumpBinaryPath = '/opt/lampp/bin/';
-        if ($scope === 'all' || $scope === 'db_only') {
-            $dbFilename = $baseFilename . '.sql';
-            $dbPath = $backupDir . '/' . $dbFilename;
 
-            MySql::create()
-                ->setDbName(config('database.connections.mysql.database'))
-                ->setUserName(config('database.connections.mysql.username'))
-                ->setPassword(config('database.connections.mysql.password'))
-                ->setHost(config('database.connections.mysql.host'))
-                ->setPort(config('database.connections.mysql.port'))
-                ->setDumpBinaryPath($dumpBinaryPath)
-                ->dumpToFile($dbPath);
+        foreach ($files as $file) {
+            if (!$file->isDir()) {
+                $filePath = $file->getRealPath();
+                $relativePath = substr($filePath, strlen($sourceDir) + 1);
+                $zip->addFile($filePath, $relativePath);
+            }
         }
 
-        $finalPath = null;
-        $finalFilename = null;
+        $zip->close();
+    }
 
-        if ($scope === 'all' || $scope === 'files_only') {
-            $zipFilename = $baseFilename . '.zip';
-            $zipPath = $backupDir . '/' . $zipFilename;
-            $zip = new ZipArchive();
+    private function copyDirectory($source, $dest)
+    {
+        if (!is_dir($dest)) {
+            mkdir($dest, 0755, true);
+        }
 
-            if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== TRUE) {
-                throw new \Exception("Cannot create zip archive at {$zipPath}");
-            }
+        $files = scandir($source);
+        
+        foreach ($files as $file) {
+            if ($file !== '.' && $file !== '..') {
+                $sourcePath = $source . '/' . $file;
+                $destPath = $dest . '/' . $file;
 
-            // Add DB dump to zip
-            if ($scope === 'all' && isset($dbPath) && File::exists($dbPath)) {
-                $zip->addFile($dbPath, basename($dbPath));
-            }
-
-            // Add other important files/directories to zip.
-            // Example: public/uploads or storage/app/public
-            // Using storage/app/public as an example here.
-            $filesPath = storage_path('app/public'); // Adjust this path to what you need to back up
-            if (File::exists($filesPath)) {
-                $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($filesPath), \RecursiveIteratorIterator::LEAVES_ONLY);
-                foreach ($files as $name => $file) {
-                    if (!$file->isDir()) {
-                        $filePath = $file->getRealPath();
-                        $relativePath = 'files/' . substr($filePath, strlen($filesPath) + 1);
-                        $zip->addFile($filePath, $relativePath);
-                    }
+                if (is_dir($sourcePath)) {
+                    $this->copyDirectory($sourcePath, $destPath);
+                } else {
+                    copy($sourcePath, $destPath);
                 }
             }
-
-            $zip->close();
-
-            // Clean up the temporary SQL file
-            if ($scope === 'all' && isset($dbPath) && File::exists($dbPath)) {
-                File::delete($dbPath);
-            }
-
-            $finalPath = $zipPath;
-            $finalFilename = $zipFilename;
-        } elseif ($scope === 'db_only') {
-            $finalPath = $dbPath;
-            $finalFilename = $dbFilename;
         }
+    }
 
-        return [
-            'filename' => $finalFilename,
-            'size' => $finalPath && File::exists($finalPath) ? $this->formatBytes(File::size($finalPath)) : '0 B',
-            'path' => $finalPath,
-        ];
+    private function cleanup($dir)
+    {
+        if (is_dir($dir)) {
+            $files = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($dir, \RecursiveDirectoryIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::CHILD_FIRST
+            );
+
+            foreach ($files as $file) {
+                if ($file->isDir()) {
+                    rmdir($file->getPathname());
+                } else {
+                    unlink($file->getPathname());
+                }
+            }
+            
+            rmdir($dir);
+        }
     }
 
     private function formatBytes($bytes, $precision = 2)

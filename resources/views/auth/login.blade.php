@@ -1,74 +1,84 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Secure login for Deurali Chemicals employee portal.">
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <title>Login | Deurali Chemicals</title>
 </head>
-
-<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+<body class="bg-slate-100 flex items-center justify-center min-h-screen p-4 font-sans text-slate-900">
 
     <!-- Main Container -->
-    <div class="bg-white shadow-xl flex flex-col md:flex-row rounded-2xl overflow-hidden w-full max-w-4xl">
+    <div class="bg-white shadow-2xl flex flex-col md:flex-row rounded-3xl overflow-hidden w-full max-w-4xl border border-slate-100">
 
-        <!-- Left Side: Branding Section -->
-        <div class="w-full md:w-1/2 bg-blue-50 flex flex-col items-center justify-center p-8 md:p-10">
-            <div class="mb-6">
-                <img src="{{ asset('storage/img/dcl.png') }}" alt="Deurali Chemicals Logo" class="w-28 h-28 object-contain">
-            </div>
-            <h1 class="text-2xl font-bold text-blue-900 text-center mb-2">Deurali Chemicals Pvt Ltd</h1>
-            <p class="text-gray-600 text-center text-sm">Kuleshwor, Kathmandu</p>
-            <p class="text-gray-600 text-center text-sm">Kathmandu Metro-14</p>
+        <!-- Left Side: Branding (Hidden on mobile, visible on tablet+) -->
+        <div class="hidden md:flex w-5/12 bg-slate-900 flex-col items-center justify-center p-12 text-white">
+            <img src="{{ asset('storage/img/dcl.png') }}" alt="Deurali Chemicals Logo" class="w-32 h-32 object-contain mb-8 filter brightness-0 invert">
+            <h1 class="text-2xl font-bold tracking-tight mb-2 text-center">Deurali Chemicals Pvt Ltd</h1>
+            <div class="h-1 w-12 bg-blue-500 rounded-full mb-6"></div>
+            <p class="text-slate-400 text-sm text-center font-medium">Enterprise Management System</p>
         </div>
 
-        <!-- Right Side: Login Form Section -->
-        <div class="w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-center">
-            <h2 class="text-2xl font-bold text-gray-800 mb-6">Welcome Back</h2>
+        <!-- Right Side: Login Form -->
+        <div class="w-full md:w-7/12 p-8 md:p-14 flex flex-col justify-center">
+            
+            <!-- Mobile Logo -->
+            <div class="md:hidden flex justify-center mb-8">
+                 <img src="{{ asset('storage/img/dcl.png') }}" alt="Logo" class="w-20 h-20 object-contain">
+            </div>
+
+            <div class="mb-8">
+                <h2 class="text-3xl font-extrabold text-slate-800">Welcome back</h2>
+                <p class="text-slate-500 mt-2">Sign in to your account to continue.</p>
+            </div>
 
             <form action="{{ route('login') }}" method="POST">
                 @csrf
                 
                 <!-- Email Field -->
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                    <input type="email" name="email" required
-                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                        placeholder="Enter a valid Email Address">
+                <div class="mb-5">
+                    <label for="email" class="block text-sm font-semibold text-slate-700 mb-1.5">Email Address</label>
+                    <input type="email" id="email" name="email" required autocomplete="email"
+                        class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 outline-none transition-all"
+                        placeholder="name@deuralichemicals.com">
                 </div>
 
                 <!-- Password Field -->
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                    <input type="password" name="password" required
-                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                <div class="mb-5">
+                    <div class="flex justify-between mb-1.5">
+                        <label for="password" class="block text-sm font-semibold text-slate-700">Password</label>
+                        <a href="{{ route('password.request') }}" class="text-sm text-blue-600 hover:text-blue-700 font-medium transition">Forgot Password?</a>
+                    </div>
+                    <input type="password" id="password" name="password" required autocomplete="current-password"
+                        class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 outline-none transition-all"
                         placeholder="••••••••">
                 </div>
 
-                <!-- Remember Me & Forgot Password Row -->
-                <div class="flex items-center justify-between mb-6">
-                    <label class="flex items-center text-sm text-gray-600 cursor-pointer">
-                        <input type="checkbox" name="remember" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mr-2">
-                        Remember me
-                    </label>
-                    <a href="{{ route('password.request') }}" class="text-sm text-blue-600 hover:underline font-medium">Forgot password?</a>
+                <!-- Remember Me -->
+                <div class="flex items-center mb-6">
+                    <input type="checkbox" id="remember" name="remember" class="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500">
+                    <label for="remember" class="ml-2 text-sm text-slate-600 cursor-pointer select-none">Keep me signed in</label>
                 </div>
 
                 <!-- Error Handling -->
                 @if ($errors->any())
-                <div class="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-4 border border-red-200">
+                <div class="bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm mb-6 border border-red-100 font-medium" role="alert">
                     {{ $errors->first() }}
                 </div>
                 @endif
 
                 <!-- Submit Button -->
-                <button type="submit" class="w-full bg-blue-900 hover:bg-blue-800 transition-all duration-200 text-white py-2.5 rounded-lg font-semibold shadow-md">
+                <button type="submit" class="w-full bg-slate-900 hover:bg-slate-800 active:scale-[0.98] transition-all text-white py-3.5 rounded-xl font-bold shadow-lg shadow-slate-200">
                     Sign In
                 </button>
             </form>
+            
+            <p class="mt-8 text-center text-xs text-slate-400">
+                &copy; {{ date('Y') }} Deurali Chemicals Pvt Ltd. All rights reserved.
+            </p>
         </div>
     </div>
 </body>
-
 </html>

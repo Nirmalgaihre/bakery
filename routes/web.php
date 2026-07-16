@@ -135,12 +135,16 @@ Route::middleware(['web', 'auth', 'verified'])->prefix('admin')->name('admin.')-
         // Customer Ledger (manage payments)
         Route::post('/customer-ledger/{id}/payment', [CustomerLedgerController::class, 'storePayment'])->name('payments.store');
 
-        // Backup Management (manage)
-        Route::prefix('backups')->name('backups.')->group(function () {
-            Route::post('/', [BackupController::class, 'store'])->name('store');
-            Route::get('/download/{filename}', [BackupController::class, 'download'])->name('download');
-            Route::delete('/destroy/{filename}', [BackupController::class, 'destroy'])->name('destroy');
-        });
+Route::prefix('backups')->name('backups.')->group(function () {
+        Route::get('/', [BackupController::class, 'index'])->name('index');
+        Route::post('/', [BackupController::class, 'store'])->name('store');
+        Route::get('/download/{filename}', [BackupController::class, 'download'])->name('download');
+        Route::delete('/destroy/{filename}', [BackupController::class, 'destroy'])->name('destroy');
+        // NEW: Import/Restore Routes
+        Route::post('/import', [BackupController::class, 'import'])->name('import');
+        Route::get('/restore/{filename}', [BackupController::class, 'restore'])->name('restore');
+
+    });
 
         // Staff & Roles Management (manage)
         Route::get('staff/create', [StaffController::class, 'create'])->name('staff.create');
