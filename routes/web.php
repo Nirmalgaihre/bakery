@@ -43,11 +43,30 @@ Route::middleware(['web', 'auth', 'verified'])->prefix('admin')->name('admin.')-
     // ADMIN-ONLY ZONE
     // Strictly restricted to Administrators. Accountants and other staff
     // are blocked from every route in this block.
+    //   - Dashboard (Inventory / Sales / Purchase dashboards)
+    //   - Cheque Management
     //   - Backup & Restore
     //   - Trash Bin (Recycler)
     //   - User Control (Staff & Role management)
+    //
+    // NOTE: Dashboard + Cheques were moved here from the shared
+    // admin+accountant block below — accountants no longer have route-level
+    // access to these, matching the sidebar/layout changes.
     // =====================================================================
     Route::middleware(['role:admin'])->group(function () {
+
+        // Dashboards
+        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+        Route::get('sales/dashboard', [SalesDashboardController::class, 'index'])->name('sales.dashboard');
+        Route::get('purchases/dashboard', [PurchaseDashboardController::class, 'index'])->name('purchases.dashboard');
+
+        // Cheque Management (full CRUD)
+        Route::prefix('cheques')->name('cheques.')->group(function () {
+            Route::get('/create', [ChequeController::class, 'create'])->name('create');
+            Route::post('/', [ChequeController::class, 'store'])->name('store');
+            Route::get('/trigger-reminders', [ChequeController::class, 'sendMaturityEmail'])->name('send_reminders');
+            Route::get('/', [ChequeController::class, 'index'])->name('index');
+        });
 
         // Trash Bin (Recycler)
         Route::get('trash', [TrashController::class, 'index'])->name('trash.index');
@@ -85,8 +104,10 @@ Route::middleware(['web', 'auth', 'verified'])->prefix('admin')->name('admin.')-
     // ADMIN + ACCOUNTANT ZONE
     // Full authority (create, edit, view, manage) over the core
     // operational & financial pipeline: Categories, Suppliers, Products,
-    // Customers, Sales & Invoicing, Inventory, Returns/Wastage,
-    // Reports, and Cheque Management.
+    // Customers, Sales & Invoicing, Inventory, Returns/Wastage, Reports.
+    //
+    // Dashboard and Cheque Management were REMOVED from this block — they
+    // now live exclusively in the admin-only zone above.
     //
     // NOTE ON ORDERING:
     // Literal segments like "products/create" are registered before the
@@ -96,7 +117,6 @@ Route::middleware(['web', 'auth', 'verified'])->prefix('admin')->name('admin.')-
     Route::middleware(['role:admin|accountant'])->group(function () {
 
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
-        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
         // ---------------------------------------------------------------
         // Step 1: Category Management (full CRUD)
@@ -171,7 +191,6 @@ Route::middleware(['web', 'auth', 'verified'])->prefix('admin')->name('admin.')-
             Route::get('/pos/{product?}', [SalesController::class, 'createSale'])->name('pos.create');
             Route::post('/{id}/update-payment', [SalesController::class, 'updatePayment'])->name('update-payment');
             Route::get('/manage', [SalesController::class, 'manage'])->name('manage');
-            Route::get('/dashboard', [SalesDashboardController::class, 'index'])->name('dashboard');
             Route::get('/analysis', [SalesController::class, 'itemAnalysis'])->name('item-analysis');
             Route::get('/ledger-by-phone/{phone}', [CustomerLedgerController::class, 'showByPhone'])->name('customer-ledger-by-phone');
             Route::get('/ledger/{customerId}', [CustomerLedgerController::class, 'showCustomerLedger'])->name('customer-ledger');
@@ -208,7 +227,6 @@ Route::middleware(['web', 'auth', 'verified'])->prefix('admin')->name('admin.')-
             Route::get('/edit/{purchase}', [PurchaseDashboardController::class, 'edit'])->name('edit');
             Route::post('/update/{purchase}', [PurchaseDashboardController::class, 'update'])->name('update');
             Route::delete('/destroy/{purchase}', [PurchaseDashboardController::class, 'destroy'])->name('destroy');
-            Route::get('/dashboard', [PurchaseDashboardController::class, 'index'])->name('dashboard');
             Route::get('/{purchase}', [PurchaseDashboardController::class, 'show'])->name('show');
         });
 
@@ -236,16 +254,6 @@ Route::middleware(['web', 'auth', 'verified'])->prefix('admin')->name('admin.')-
             Route::get('/stock-ageing', [InventoryMovementController::class, 'stockAgeing'])->name('stock_ageing');
             Route::get('/monthly-movement', [InventoryMovementController::class, 'monthlyMovementReport'])->name('monthly-movement');
             Route::get('/stock-movement', [InventoryMovementController::class, 'productTraceability'])->name('stock-movement');
-        });
-
-        // ---------------------------------------------------------------
-        // Step 9: Cheque Management (full CRUD)
-        // ---------------------------------------------------------------
-        Route::prefix('cheques')->name('cheques.')->group(function () {
-            Route::get('/create', [ChequeController::class, 'create'])->name('create');
-            Route::post('/', [ChequeController::class, 'store'])->name('store');
-            Route::get('/trigger-reminders', [ChequeController::class, 'sendMaturityEmail'])->name('send_reminders');
-            Route::get('/', [ChequeController::class, 'index'])->name('index');
         });
 
         // ---------------------------------------------------------------

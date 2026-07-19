@@ -56,7 +56,12 @@
     =========================================================
     ROLE-BASED ACCESS CONTROL (RBAC) — SINGLE SOURCE OF TRUTH
     =========================================================
-    $userRole        -> raw role string on the authenticated user
+    $userRole        -> normalized (lowercased, trimmed) role string on the
+                         authenticated user. Normalization is important:
+                         if the DB ever stores "Accountant", " accountant",
+                         or the role column is enum-backed, a naive strict
+                         string comparison silently fails and the entire
+                         accountant sidebar disappears with no error.
     $isAdmin         -> Administrator: unrestricted access to everything,
                          including Backup & Restore, Trash, and User Control.
     $isAccountant    -> Accountant: full access to the operational + financial
@@ -73,9 +78,31 @@
                          "Admin Only" block so intent is obvious at a glance.
 --}}
 @php
-    $userRole      = auth()->check() ? auth()->user()->role : null;
+    // Grab the raw role value off the authenticated user.
+    $rawRole = auth()->check() ? auth()->user()->role : null;
+
+    // Defensive unwrap: if role is enum-backed (e.g. App\Enums\UserRole) or
+    // any other object, pull out ->value, then ->name, then cast to string
+    // as a last resort — instead of letting it fail the comparison silently.
+    if (is_object($rawRole)) {
+        $rawRole = $rawRole->value ?? $rawRole->name ?? (string) $rawRole;
+    }
+
+    // Normalize: lowercase + trim so "Accountant", " accountant ", "ACCOUNTANT"
+    // etc. all match correctly. This is the fix for the accountant sidebar
+    // not appearing — a case/whitespace mismatch here silently makes
+    // $isAccountant false everywhere below.
+    $userRole      = $rawRole ? strtolower(trim($rawRole)) : null;
     $isAdmin       = $userRole === 'admin';
+
+    // If "operator" in your users table is meant to be the same tier as
+    // "accountant" (full ops access, no admin tools), uncomment the alias
+    // below. Leave it as-is if operator should remain a separate, more
+    // restricted role — in that case the real fix is updating the user's
+    // role value in the database to 'accountant' instead.
+    // $isAccountant = in_array($userRole, ['accountant', 'operator']);
     $isAccountant  = $userRole === 'accountant';
+
     $canManageOps  = $isAdmin || $isAccountant;
     $isAdminOnly   = $isAdmin;
 @endphp
@@ -159,7 +186,8 @@
 
     @if($canManageOps)
 
-    {{-- Dashboard --}}
+    {{-- Dashboard: Admin only. Accountant does not see the Dashboards menu. --}}
+    @if($isAdmin)
     <div>
         <div class="text-[10px] font-bold text-slate-500 px-3 mb-1.5 tracking-widest uppercase">Dashboards</div>
         <div class="space-y-0.5">
@@ -189,6 +217,7 @@
             </div>
         </div>
     </div>
+    @endif
 
     {{-- Categories --}}
     <div>
@@ -442,7 +471,8 @@
         </div>
     </div>
 
-    {{-- Cheques --}}
+    {{-- Cheques: Admin only. Accountant does not see the Cheques menu. --}}
+    @if($isAdmin)
     <div>
         <div class="text-[10px] font-bold text-slate-500 px-3 mb-1.5 tracking-widest uppercase">Cheques</div>
         <div class="space-y-0.5">
@@ -468,6 +498,7 @@
             </div>
         </div>
     </div>
+    @endif
 
     {{-- Release Notes --}}
     <div class="pt-2">
@@ -685,8 +716,10 @@
         @if($canManageOps)
         <header class="shrink-0 border-b border-slate-200 bg-white shadow-sm">
             <div class="flex min-h-9 items-end gap-1 overflow-x-auto border-b border-slate-100 px-3 pt-1">
-                <a href="{{ route('admin.dashboard') }}"
-                    class="rounded-t-md border border-b-0 px-4 py-2 text-[12px] font-semibold transition-colors {{ request()->routeIs('admin.dashboard') ? 'border-slate-200 bg-white text-blue-700' : 'border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800' }}">
+                {{-- Admin lands on the Dashboard; Accountant has no dashboard access,
+                     so their "Home" tab points to Sales Register instead. --}}
+                <a href="{{ $isAdmin ? route('admin.dashboard') : route('admin.sales.index') }}"
+                    class="rounded-t-md border border-b-0 px-4 py-2 text-[12px] font-semibold transition-colors {{ (request()->routeIs('admin.dashboard') || (!$isAdmin && request()->routeIs('admin.sales.index'))) ? 'border-slate-200 bg-white text-blue-700' : 'border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800' }}">
                     Home
                 </a>
                 <a href="{{ route('admin.sales.index') }}"
@@ -815,6 +848,7 @@
                     <span class="text-center text-[9px] font-bold uppercase text-slate-400">Tools</span>
                 </div>
 
+                @if($isAdmin)
                 <div class="flex min-w-max flex-col justify-between gap-1">
                     <div class="flex gap-1">
                         <a href="{{ route('admin.cheques.create') }}"
@@ -830,6 +864,7 @@
                     </div>
                     <span class="text-center text-[9px] font-bold uppercase text-slate-400">Payment</span>
                 </div>
+                @endif
             </div>
         </header>
         @endif
