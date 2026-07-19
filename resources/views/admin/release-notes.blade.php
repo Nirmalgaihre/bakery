@@ -44,11 +44,11 @@
                 </div>
                 <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
                     <p class="text-blue-200 text-xs font-medium uppercase tracking-wider">Total Commits</p>
-                    <p class="text-white text-2xl font-bold mt-1">13</p>
+                    <p class="text-white text-2xl font-bold mt-1">6</p>
                 </div>
                 <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
                     <p class="text-blue-200 text-xs font-medium uppercase tracking-wider">Launch Date</p>
-                    <p class="text-white text-2xl font-bold mt-1">Apr 1</p>
+                    <p class="text-white text-2xl font-bold mt-1">July 18 </p>
                 </div>
             </div>
         </div>
