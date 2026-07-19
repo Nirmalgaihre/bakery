@@ -48,7 +48,7 @@
                 </div>
                 <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
                     <p class="text-blue-200 text-xs font-medium uppercase tracking-wider">Launch Date</p>
-                    <p class="text-white text-2xl font-bold mt-1">July 18 </p>
+                    <p class="text-white text-2xl font-bold mt-1">July 18</p>
                 </div>
             </div>
         </div>
@@ -196,10 +196,10 @@
                                     <i class="fa-solid fa-code-commit mr-1"></i>
                                     156 changes
                                 </span>
-                                <span class="text-xs text-slate-500">
-                                    <i class="fa-solid fa-user mr-1"></i>
-                                    Deployed by DevOps Team
-                                </span>
+                                <a href="https://instagram.com/gaihre_nirmal" target="_blank" class="text-xs text-slate-500 hover:text-blue-600 transition-colors flex items-center gap-1">
+                                    <i class="fa-brands fa-instagram text-sm"></i>
+                                    Deployed by Nirmal Gaihre
+                                </a>
                             </div>
                             <span class="text-sm text-slate-400 font-medium">Production Build Stable</span>
                         </div>
