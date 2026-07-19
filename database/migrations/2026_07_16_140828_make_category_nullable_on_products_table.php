@@ -11,12 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('products', function (Blueprint $table) {
-            // Legacy 'category' string column predates category_id FK.
-            // Make it nullable so new inserts (which only set category_id)
-            // don't fail with "Field 'category' doesn't have a default value".
-            $table->string('category')->nullable()->change();
-        });
+        // Only run the alteration if the old 'category' column exists
+        if (Schema::hasColumn('products', 'category')) {
+            Schema::table('products', function (Blueprint $table) {
+                $table->string('category')->nullable()->change();
+            });
+        }
     }
 
     /**
@@ -24,8 +24,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('products', function (Blueprint $table) {
-            $table->string('category')->nullable(false)->change();
-        });
+        if (Schema::hasColumn('products', 'category')) {
+            Schema::table('products', function (Blueprint $table) {
+                $table->string('category')->nullable(false)->change();
+            });
+        }
     }
 };

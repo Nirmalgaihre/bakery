@@ -8,12 +8,13 @@ class Invoice extends Model
 {
     protected $table = 'invoices';
 
-   protected $fillable = [
+    protected $fillable = [
         'invoice_no',
         'invoice_number',
         'invoice_date',
         'nepali_date',
         'customer_id',
+        'supplier_id', // 1. Added supplier_id here to allow mass-assignment
         'patient_name',
         'patient_address',
         'subtotal',
@@ -46,8 +47,15 @@ class Invoice extends Model
     {
         return $this->belongsTo(Customer::class, 'customer_id');
     }
+
+    // 2. Added the relationship method to link the Supplier model
+    public function supplier()
+    {
+        return $this->belongsTo(Supplier::class, 'supplier_id');
+    }
+
     public function invoiceItems()
-{
-    return $this->hasMany(InvoiceItem::class, 'invoice_id');
-}
+    {
+        return $this->hasMany(InvoiceItem::class, 'invoice_id');
+    }
 }

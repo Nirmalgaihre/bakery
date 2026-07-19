@@ -136,8 +136,36 @@
                 </select>
             </div>
 
+            {{-- 2. Supplier Selection (Optional, searchable, deduped by phone) --}}
+            <div class="space-y-1 relative" id="supplier-field-wrapper">
+                <label class="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
+                    2. Supplier <span class="text-slate-400 font-normal normal-case">(Optional)</span>
+                </label>
+
+                <div class="relative">
+                    <i class="fa-solid fa-truck-field absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 text-[11px] pointer-events-none"></i>
+                    <input type="text" id="supplier-search-input" autocomplete="off"
+                        placeholder="Search supplier by name, contact or phone..."
+                        class="w-full pl-8 pr-8 py-1.5 border border-slate-200 text-xs rounded-md bg-white text-slate-700 focus:outline-none focus:border-blue-500">
+                    <button type="button" id="supplier-clear-btn"
+                        class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-slate-300 hover:text-red-500 transition-colors bg-transparent border-none outline-none cursor-pointer">
+                        <i class="fa-solid fa-circle-xmark text-xs"></i>
+                    </button>
+                </div>
+
+                <div id="supplier-dropdown"
+                    class="hidden absolute z-20 mt-1 w-full max-h-52 overflow-y-auto bg-white border border-slate-200 rounded-md shadow-lg divide-y divide-slate-50">
+                    {{-- populated by JS --}}
+                </div>
+
+                <input type="hidden" id="selected-supplier-id" value="">
+                <p id="supplier-selected-label" class="hidden text-[10px] text-emerald-600 font-semibold mt-1">
+                    <i class="fa-solid fa-circle-check"></i> <span></span>
+                </p>
+            </div>
+
             <div class="space-y-1">
-                <label class="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">2. Payment
+                <label class="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">3. Payment
                     Method</label>
                 <div class="grid grid-cols-2 gap-2">
                     <button type="button"
@@ -225,6 +253,11 @@
         </div>
     </div>
 </div>
+
+{{-- Supplier data for the searchable field below. Already deduped by phone number and pre-built as a plain array in the controller. --}}
+<script>
+    window.SUPPLIERS_DATA = @json($supplierOptions);
+</script>
 
 <script>
 function dismissDynamicAlert(alertId) {
@@ -673,6 +706,99 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // ---------------- Supplier Searchable Select (Optional, deduped by phone) ----------------
+    const suppliersData      = window.SUPPLIERS_DATA || [];
+    const supplierInput      = document.getElementById('supplier-search-input');
+    const supplierDropdown   = document.getElementById('supplier-dropdown');
+    const supplierHiddenId   = document.getElementById('selected-supplier-id');
+    const supplierClearBtn   = document.getElementById('supplier-clear-btn');
+    const supplierSelectedLbl = document.getElementById('supplier-selected-label');
+
+    function escapeHtml(str) {
+        return (str ?? '').toString()
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function matchSuppliers(query) {
+        if (!query) return suppliersData;
+        const q = query.toLowerCase();
+        return suppliersData.filter(s =>
+            (s.name || '').toLowerCase().includes(q) ||
+            (s.contact_person || '').toLowerCase().includes(q) ||
+            (s.phone || '').toLowerCase().includes(q)
+        );
+    }
+
+    function renderSupplierDropdown(list) {
+        if (!list.length) {
+            supplierDropdown.innerHTML =
+                '<div class="px-3 py-2 text-[11px] text-slate-400">No supplier found.</div>';
+            supplierDropdown.classList.remove('hidden');
+            return;
+        }
+
+        supplierDropdown.innerHTML = list.map(s => `
+            <button type="button" class="supplier-option w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors"
+                data-id="${s.id}" data-name="${escapeHtml(s.name)}">
+                <span class="block text-[11px] font-semibold text-slate-800">${escapeHtml(s.name)}</span>
+                <span class="block text-[10px] text-slate-400">
+                    ${s.contact_person ? escapeHtml(s.contact_person) + ' &middot; ' : ''}${s.phone ? escapeHtml(s.phone) : 'No phone'}
+                </span>
+            </button>
+        `).join('');
+
+        supplierDropdown.classList.remove('hidden');
+
+        supplierDropdown.querySelectorAll('.supplier-option').forEach(btn => {
+            btn.addEventListener('click', function() {
+                selectSupplier(this.dataset.id, this.dataset.name);
+            });
+        });
+    }
+
+    function selectSupplier(id, name) {
+        supplierHiddenId.value = id;
+        supplierInput.value = name;
+        supplierDropdown.classList.add('hidden');
+        supplierClearBtn.classList.remove('hidden');
+        supplierSelectedLbl.classList.remove('hidden');
+        supplierSelectedLbl.querySelector('span').textContent = 'Linked to: ' + name;
+    }
+
+    function clearSupplier() {
+        supplierHiddenId.value = '';
+        supplierInput.value = '';
+        supplierClearBtn.classList.add('hidden');
+        supplierSelectedLbl.classList.add('hidden');
+        supplierInput.focus();
+    }
+
+    if (supplierInput) {
+        supplierInput.addEventListener('focus', function() {
+            renderSupplierDropdown(matchSuppliers(this.value.trim()));
+        });
+
+        supplierInput.addEventListener('input', function() {
+            // Typing invalidates a previously confirmed selection until they pick again.
+            supplierHiddenId.value = '';
+            supplierClearBtn.classList.add('hidden');
+            supplierSelectedLbl.classList.add('hidden');
+            renderSupplierDropdown(matchSuppliers(this.value.trim()));
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('#supplier-field-wrapper')) {
+                supplierDropdown.classList.add('hidden');
+            }
+        });
+    }
+
+    if (supplierClearBtn) {
+        supplierClearBtn.addEventListener('click', clearSupplier);
+    }
+    // ------------------------------------------------------------------------------------------
+
     submitBtn.addEventListener('click', function() {
         hideError();
 
@@ -687,6 +813,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const payload = {
             customer_id: document.getElementById('customer-select').value,
+            supplier_id: document.getElementById('selected-supplier-id').value || null,
             payment_method: hiddenPayInput.value,
             include_vat: vatToggle.checked ? 1 : 0,
             discount: parseFloat(discountInput.value) || 0,

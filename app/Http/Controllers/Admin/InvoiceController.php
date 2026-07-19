@@ -23,7 +23,7 @@ public function index()
 {
     // फोन नम्बर अनुसार Grouping गरेर डेटा लिने
     $invoices = \App\Models\Invoice::with(['customer', 'items'])
-        ->get()
+        ->with('supplier') // Eager load supplier
         ->groupBy(function($invoice) {
             return $invoice->customer ? $invoice->customer->phone_number : 'Walk-in';
         });
@@ -395,7 +395,7 @@ public function index()
 public function show($id)
 {
     // Fetch the invoice
-    $invoice = \App\Models\Invoice::with(['items.product'])->findOrFail($id);
+    $invoice = \App\Models\Invoice::with(['items.product', 'supplier'])->findOrFail($id); // Eager load supplier
 
     // If you are using 'invoice_items' table:
     $calculatedSubtotal = $invoice->items->sum(function($item) {

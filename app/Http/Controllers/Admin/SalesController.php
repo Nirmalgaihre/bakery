@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\Customer;
+use App\Models\Supplier; // <--- Added for the optional Supplier selector on the POS terminal
 use App\Models\Invoice;
 use App\Models\User;
 use App\Models\Sale; // <--- Ensure this line is present
@@ -24,8 +25,38 @@ class SalesController extends Controller
      */
     public function create()
     {
-        $products  = Product::orderBy('name', 'asc')->get();
-        $customers = Customer::orderBy('name', 'asc')->get();
+        $products = Product::orderBy('name', 'asc')->get();
+        $products = Product::where('initial_stock', '>', 0)->orderBy('name', 'asc')->get();
+
+        // Unique customers by phone number.
+        // Rule: if two customers share the same phone number, only the first is kept.
+        // Customers with no phone number are never merged with each other — each is kept.
+        $customers = Customer::orderBy('name', 'asc')
+            ->get()
+            ->unique(function ($customer) {
+                return $customer->phone_number ? trim($customer->phone_number) : 'no-phone-' . $customer->id;
+            })
+            ->values();
+
+        // Unique suppliers by phone number, same de-dup rule as customers.
+        // Supplier is optional on the POS terminal, so this list simply feeds the searchable field.
+        $suppliers = Supplier::orderBy('name', 'asc')
+            ->get()
+            ->unique(function ($supplier) {
+                return $supplier->phone ? trim($supplier->phone) : 'no-phone-' . $supplier->id;
+            })
+            ->values();
+
+        // Pre-built as a plain array here (not inline in Blade) — Blade's @json directive
+        // cannot reliably parse a ->map(function(){ return [...]; }) closure argument.
+        $supplierOptions = $suppliers->map(function ($supplier) {
+            return [
+                'id'             => $supplier->id,
+                'name'           => $supplier->name,
+                'contact_person' => $supplier->contact_person,
+                'phone'          => $supplier->phone,
+            ];
+        })->values();
 
         $fiscalYearCode      = "FY-2082/83";
         $invoiceCount        = Invoice::count() + 1;
@@ -33,10 +64,10 @@ class SalesController extends Controller
         $currentNepaliDate   = \Anuzpandey\LaravelNepaliDate\LaravelNepaliDate::from(date('Y-m-d'))->toNepaliDate(format: 'Y-m-d');
 
         return view('admin.sales.pos.create', compact(
-            'products', 'customers', 'currentNepaliDate', 'next_invoice_number'
+            'products', 'customers', 'suppliers', 'supplierOptions', 'currentNepaliDate', 'next_invoice_number'
         ));
     }
-    
+
 
     /**
      * Dashboard with Chart Data and Customer List.
@@ -126,7 +157,7 @@ class SalesController extends Controller
     {
         // Fetch products with pagination
         $products = Product::with('category')->latest()->paginate(15); // Eager load category
-        
+
         return view('admin.inventory.index', compact('products'));
     }
 
@@ -156,6 +187,7 @@ class SalesController extends Controller
     try {
         $validated = $request->validate([
             'customer_id'         => 'required|exists:customers,id',
+            'supplier_id'         => 'nullable|integer|exists:suppliers,id', // Optional supplier link
             'payment_method'      => 'required|string|in:Cash,Online Payment,Bank Transfer,Credit Sale',
             'include_vat'         => 'required|boolean',
             'discount'            => 'required|numeric|min:0',
@@ -220,6 +252,7 @@ class SalesController extends Controller
                 'invoice_date'    => now()->toDateString(),
                 'nepali_date'     => $validated['transaction_date'] ?? '',
                 'customer_id'     => $customer->id,
+                'supplier_id'     => $validated['supplier_id'] ?? null, // Optional supplier reference
                 'patient_name'    => $customer->name ?? 'Walk-in Customer',
                 'patient_address' => $customer->address ?? 'N/A',
                 'subtotal'        => round($subtotal, 2),
@@ -248,7 +281,7 @@ class SalesController extends Controller
 
                 $newStock = $entry['product']->initial_stock - $entry['total_weight'];
                 $entry['product']->update(['initial_stock' => $newStock]);
-                
+
                 $this->checkAndSendLowStockAlert($entry['product']);
             }
 
@@ -328,7 +361,7 @@ public function updatePayment(Request $request, $id)
 public function itemAnalysis(Request $request)
 {
     $customers = Customer::orderBy('name', 'asc')->get();
-    
+
     $products = collect();
     $productHistory = collect();
     $totalQty = 0;
@@ -355,7 +388,7 @@ public function itemAnalysis(Request $request)
             ->select('invoices.invoice_no', 'invoices.invoice_date', 'invoice_items.qty', 'invoice_items.price', 'invoice_items.total')
             ->orderBy('invoices.invoice_date', 'desc')
             ->get();
-        
+
         $totalQty = $productHistory->sum('qty');
         $grandTotal = $productHistory->sum('total');
     }
@@ -418,7 +451,7 @@ private function sendLowStockEmail($productName, $currentStock)
                 <div style='font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px;'>
                     <h2 style='color: #d9534f;'>Low Stock Alert</h2>
                     <p>This is an automated notification to inform you that an item in your inventory is running low.</p>
-                    
+
                     <table style='width: 100%; border-collapse: collapse; margin: 20px 0;'>
                         <tr>
                             <td style='padding: 8px; border-bottom: 1px solid #eee;'><strong>Product Name:</strong></td>
@@ -431,16 +464,16 @@ private function sendLowStockEmail($productName, $currentStock)
                     </table>
 
                     <p>Please review your inventory levels and take the necessary action to initiate a reorder if required.</p>
-                    
+
                     <hr style='border: 0; border-top: 1px solid #eee; margin: 20px 0;'>
-                    
+
                     <p style='font-size: 12px; color: #777;'>
                         <em>This is an automated message from the Inventory Management System. Please do not reply to this email, as this inbox is not monitored.</em>
                     </p>
                 </div>
             ";
             $mail->send();
-            
+
         } catch (Exception $e) {
             Log::error("Email Error: " . $mail->ErrorInfo);
         } catch (\Exception $e) {
@@ -451,8 +484,8 @@ private function sendLowStockEmail($productName, $currentStock)
     {
         // Fetch all sales, eager loading relations like 'customer' or 'user' if needed
         // The user requested to show all invoices in the manage section.
-        // Assuming 'Sale' model was a placeholder or intended to be 'Invoice'.
-        $sales = Invoice::with('customer')->latest()->paginate(20);
+        // Assuming 'Sale' model was a placeholder or intended to be 'Invoice'. Also eager load supplier.
+        $sales = Invoice::with(['customer', 'supplier'])->latest()->paginate(20);
 
         return view('admin.sales.manage', compact('sales'));
     }

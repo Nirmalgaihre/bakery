@@ -15,7 +15,7 @@
 
         <!-- Left Side: Branding (Hidden on mobile, visible on tablet+) -->
         <div class="hidden md:flex w-5/12 bg-slate-900 flex-col items-center justify-center p-12 text-white">
-            <img src="{{ asset('storage/img/dcl.png') }}" alt="Deurali Chemicals Logo" class="w-32 h-32 object-contain mb-8 filter brightness-0 invert">
+            <img src="https://deuralichemicals.com.np/storage/img/dcl.png" alt="Deurali Chemicals Logo" class="w-32 h-32 object-contain mb-8 filter brightness-0 invert">
             <h1 class="text-2xl font-bold tracking-tight mb-2 text-center">Deurali Chemicals Pvt Ltd</h1>
             <div class="h-1 w-12 bg-blue-500 rounded-full mb-6"></div>
             <p class="text-slate-400 text-sm text-center font-medium">Enterprise Management System</p>
@@ -25,9 +25,10 @@
         <div class="w-full md:w-7/12 p-8 md:p-14 flex flex-col justify-center">
             
             <!-- Mobile Logo -->
-            <div class="md:hidden flex justify-center mb-8">
-                 <img src="{{ asset('storage/img/dcl.png') }}" alt="Logo" class="w-20 h-20 object-contain">
-            </div>
+           <div class="flex justify-center mb-8">
+     <!-- Added 'rounded-full' to turn the square cube into a perfect circle -->
+     <img src="https://deuralichemicals.com.np/storage/img/dcl.jpg" alt="Logo" class="w-20 h-20 object-contain rounded-full bg-gray-100">
+</div>
 
             <div class="mb-8">
                 <h2 class="text-3xl font-extrabold text-slate-800">Welcome back</h2>

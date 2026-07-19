@@ -6,9 +6,23 @@ use Illuminate\Database\Eloquent\Model;
 
 class Purchase extends Model
 {
-    // सबै फिल्डहरू क्लासको भित्र (ब्रेसको बीचमा) हुनुपर्छ
     protected $fillable = [
-        'item_name', 'quantity', 'price_per_unit', 'total_amount', 
-        'supplier_name', 'purchase_date', 'notes', 'unit'
+        'supplier_id',
+        'item_name', 
+        'quantity', 
+        'unit',
+        'price_per_unit', 
+        'total_amount', 
+        'supplier_name', 
+        'purchase_date', 
+        'notes'
     ];
+
+    /**
+     * Relationship: The supplier mapped to this transaction entry
+     */
+    public function supplier()
+    {
+        return $this->belongsTo(Supplier::class, 'supplier_id');
+    }
 }

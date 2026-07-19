@@ -1,126 +1,130 @@
 @extends('layouts.admin')
 
+@section('title', 'Sales Management - Admin Console | Deurali Chemicals Pvt Ltd')
+@section('panel_title', 'Admin Sales Registry Ledger')
+
 @section('content')
-<div class="p-6 max-w-7xl mx-auto space-y-6">
-    
-    {{-- Top Telemetry Status Dashboard & Header Actions --}}
-    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 pb-6 border-b border-slate-200">
-        <div>
-            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Sales Management</h1>
-            <p class="text-xs text-slate-500 mt-1">Review active ledger transactions, track operational billing, and modify records.</p>
-        </div>
-        
-        <div class="flex flex-wrap items-center gap-3">
-            {{-- Context Summary Pill for User Experience --}}
-            <div class="bg-slate-100 text-slate-700 font-medium text-xs px-3 py-2 rounded-lg border border-slate-200/60 flex items-center gap-2">
-                <i class="fa-solid fa-calculator text-slate-400"></i>
-                <span>Showing <strong class="font-bold text-slate-900">{{ $sales->count() }}</strong> entries this page</span>
+<!-- Wrapped entire component to force Times New Roman globally -->
+<div class="max-w-7xl w-full mx-auto" style="font-family: 'Times New Roman', Times, serif;">
+
+    @if(session('success'))
+    <div class="mb-4 p-4 bg-emerald-50 border-l-4 border-emerald-500 text-emerald-800 rounded text-xs font-semibold">
+        {{ session('success') }}
+    </div>
+    @endif
+
+    <div class="bg-white border border-slate-200 rounded-lg shadow-xs overflow-hidden mt-4">
+        <div class="p-4 px-5 border-b border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div class="text-xs font-bold text-slate-600 tracking-wider uppercase flex items-center gap-2">
+                <i class="fa-solid fa-boxes-stacked text-blue-600"></i> Active Warehouse Sales Ledger Matrix
             </div>
             
-            <a href="#" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2.5 rounded-lg shadow-xs transition-all uppercase tracking-wide focus:ring-2 focus:ring-blue-500/20 outline-none">
-                <i class="fa-solid fa-plus text-sm"></i> Create New Sale
-            </a>
+            <div class="flex items-center gap-3 w-full sm:w-auto flex-wrap">
+                <!-- Advanced Real-time Search Input -->
+                <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="Search customer or date..." 
+                    class="text-xs border border-slate-300 rounded px-3 py-1.5 focus:ring-1 focus:ring-blue-500 outline-none w-full sm:w-64">
+
+                <a href="#"
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded shadow-xs transition-colors uppercase tracking-wide flex items-center gap-1.5 whitespace-nowrap">
+                    <i class="fa-solid fa-plus"></i> Create New Sale
+                </a>
+            </div>
         </div>
-    </div>
-    
-    {{-- Main Ledger Table Wrapper --}}
-    <div class="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+
+        <div class="p-4 flex items-center gap-2 flex-wrap border-b border-slate-100 bg-slate-50/20">
+            <div class="uppercase text-[11px] bg-slate-100 font-mono text-slate-600 px-3 py-1.5 rounded border border-slate-200/60">
+                <i class="fa-solid fa-calculator text-slate-400 mr-1"></i> Showing <strong class="text-slate-900">{{ $sales->count() }}</strong> entries this page
+            </div>
+        </div>
+
+        <!-- Master Scroll Container -->
+        <div class="w-full overflow-x-auto block position-relative" style="-webkit-overflow-scrolling: touch;">
+            <!-- Forced Width Layout Constraints to Keep Rows Linear -->
+            <table class="w-full min-w-[1000px] text-left border-collapse text-sm text-slate-700 table-auto" id="salesTable">
                 <thead>
-                    <tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 tracking-wider uppercase select-none">
-                        <th class="px-5 py-4 text-center font-semibold w-16">S.N.</th>
-                        <th class="px-5 py-4 text-left font-semibold">Transaction Date</th>
-                        <th class="px-5 py-4 text-left font-semibold">Customer Account</th>
-                        <th class="px-5 py-4 text-right font-semibold">Grand Total</th>
-                        <th class="px-5 py-4 text-center font-semibold w-32">Actions</th>
+                    <tr class="bg-slate-100/70 border-b border-slate-200 text-xs font-bold uppercase tracking-wider text-slate-500">
+                        <th class="p-4 pl-5 w-16 text-center">S.N.</th>
+                        <th class="p-4">Transaction Date</th>
+                        <th class="p-4">Customer Account</th>
+                        <th class="p-4 text-right">Grand Total</th>
+                        <th class="p-4 text-right pr-5 w-32">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100 text-slate-700">
+
+                <!-- Dynamic Sales Ledger Row Data Matrix -->
+                <tbody id="tableContent" class="divide-y divide-slate-100">
                     @forelse($sales as $index => $sale)
-                    <tr class="hover:bg-slate-50/60 group transition-all">
-                        {{-- Paginated Serial Number (Calculates context across pages dynamically) --}}
-                        <td class="px-5 py-4 text-center whitespace-nowrap font-mono text-xs font-medium text-slate-400 group-hover:text-slate-600">
+                    <tr class="hover:bg-slate-50/80 transition-colors data-row">
+                        <td class="p-4 pl-5 text-center text-xs text-slate-500 font-mono">
                             {{ ($sales->currentPage() - 1) * $sales->perPage() + $index + 1 }}
                         </td>
-
-                        {{-- Date Column --}}
-                        <td class="px-5 py-4 whitespace-nowrap">
-                            <div class="flex items-center gap-2.5">
-                                <i class="fa-regular fa-calendar text-slate-400 group-hover:text-slate-500 transition-colors"></i>
-                                <span class="font-medium text-slate-900">{{ $sale->created_at->format('M d, Y') }}</span>
-                                <span class="text-xs text-slate-400 hidden sm:inline">({{ $sale->created_at->format('H:i') }})</span>
-                            </div>
+                        
+                        <td class="p-4 text-xs text-slate-600 search-date">
+                            {{ $sale->created_at->format('M d, Y') }} <span class="text-slate-400">({{ $sale->created_at->format('H:i') }})</span>
                         </td>
                         
-                        {{-- Customer Identity Column --}}
-                        <td class="px-5 py-4 whitespace-nowrap">
+                        <td class="p-4 font-semibold text-slate-900 search-customer">
                             @if($sale->customer)
-                                <div class="flex items-center gap-2.5">
-                                    <div class="h-7 w-7 rounded-full bg-slate-100 group-hover:bg-blue-50 group-hover:text-blue-600 flex items-center justify-center text-[10px] font-bold text-slate-600 uppercase transition-all tracking-wider border border-transparent group-hover:border-blue-100">
-                                        {{ substr($sale->customer->name, 0, 2) }}
-                                    </div>
-                                    <span class="font-semibold text-slate-800 tracking-tight group-hover:text-slate-900">{{ $sale->customer->name }}</span>
-                                </div>
+                                {{ $sale->customer->name }}
                             @else
-                                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-medium bg-amber-50 text-amber-800 rounded border border-amber-200/50 tracking-wide select-none">
-                                    <i class="fa-solid fa-user-tag text-[9px] text-amber-600"></i> Walk-in Customer
-                                </span>
+                                <span class="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold uppercase px-2 py-0.5 rounded">Walk-in Customer</span>
                             @endif
                         </td>
                         
-                        {{-- Currency Formatted Pricing Column --}}
-                        <td class="px-5 py-4 whitespace-nowrap text-right font-mono font-bold text-slate-900">
-                            <span class="text-xs font-sans text-slate-400 font-normal mr-0.5 select-none">Rs.</span>{{ number_format($sale->grand_total, 2) }}
+                        <td class="p-4 text-right font-bold text-slate-900 text-xs">
+                            Rs. {{ number_format($sale->grand_total, 2) }}
                         </td>
                         
-                        {{-- Actions Engine Interface Column --}}
-                        <td class="px-5 py-4 whitespace-nowrap text-center">
-                            <div class="flex items-center justify-center gap-1.5">
-                                <a href="{{ route('admin.invoices.edit', $sale->id) }}" 
-                                   class="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50/40 transition-all shadow-xs focus:ring-2 focus:ring-blue-500/20 outline-none"
-                                   title="Modify Data Record">
-                                    <i class="fa-solid fa-pen-to-square text-xs"></i>
-                                </a>
-                                
-                                <form action="{{ route('admin.invoices.destroy', $sale->id) }}" method="POST" class="inline" onsubmit="return confirm('Permanently void this transaction record?')">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" 
-                                            class="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50/40 transition-all shadow-xs focus:ring-2 focus:ring-rose-500/20 outline-none"
-                                            title="Void / Delete Transaction">
-                                        <i class="fa-solid fa-trash text-xs"></i>
-                                    </button>
-                                </form>
-                            </div>
+                        <td class="p-4 text-right pr-5 flex items-center justify-end gap-2">
+                            <a href="{{ route('admin.invoices.edit', $sale->id) }}" class="text-blue-600 hover:text-blue-800 p-1">
+                                <i class="fa-solid fa-pen-to-square text-xs"></i>
+                            </a>
+                            <form action="{{ route('admin.invoices.destroy', $sale->id) }}" method="POST" class="inline" onsubmit="return confirm('Permanently void this transaction record?')">
+                                @csrf @method('DELETE')
+                                <button type="submit" class="text-rose-600 hover:text-rose-800 p-1">
+                                    <i class="fa-solid fa-trash text-xs"></i>
+                                </button>
+                            </form>
                         </td>
                     </tr>
                     @empty
-                    {{-- Interactive Fallback Panel if No Sales Match Dataset --}}
                     <tr>
-                        <td colspan="5" class="px-6 py-16 text-center bg-slate-50/30">
-                            <div class="max-w-sm mx-auto space-y-3">
-                                <div class="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
-                                    <i class="fa-solid fa-receipt text-xl"></i>
-                                </div>
-                                <div class="space-y-1">
-                                    <p class="text-sm font-bold text-slate-800">No active transaction records</p>
-                                    <p class="text-xs text-slate-400 max-w-xs mx-auto">Sales invoices logs and walking point-of-sale customer data strings display here once populated.</p>
-                                </div>
-                            </div>
-                        </td>
+                        <td colspan="5" class="p-8 text-center text-sm text-slate-400">No transaction records found.</td>
                     </tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
         
-        {{-- Responsive Tail Pagination Footers --}}
         @if($sales->hasPages())
-            <div class="p-4 bg-slate-50/70 border-t border-slate-200">
-                {{ $sales->links() }}
-            </div>
+        <div class="p-4 border-t bg-slate-50/50">{{ $sales->links() }}</div>
         @endif
     </div>
 </div>
+
+<script>
+// Upgraded real-time search logic mapping custom names and transaction dates concurrently
+function filterTable() {
+    let input = document.getElementById("searchInput");
+    let filter = input.value.toUpperCase().trim();
+    let tableContent = document.getElementById("tableContent");
+    let rows = tableContent.getElementsByClassName("data-row");
+
+    for (let i = 0; i < rows.length; i++) {
+        let customerField = rows[i].getElementsByClassName("search-customer")[0];
+        let dateField = rows[i].getElementsByClassName("search-date")[0];
+        
+        if (customerField || dateField) {
+            let customerText = customerField ? (customerField.textContent || customerField.innerText) : "";
+            let dateText = dateField ? (dateField.textContent || dateField.innerText) : "";
+            
+            if (customerText.toUpperCase().indexOf(filter) > -1 || dateText.toUpperCase().indexOf(filter) > -1) {
+                rows[i].style.display = "";
+            } else {
+                rows[i].style.display = "none";
+            }
+        }
+    }
+}
+</script>
 @endsection

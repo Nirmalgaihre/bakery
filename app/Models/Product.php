@@ -7,13 +7,14 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
 use App\Notifications\LowStockAlert;
+use App\Models\User; // <-- ADDED: Crucial namespace fix for the booted() method
 
 class Product extends Model
 {
     protected $fillable = [
         'name',
-        'category_id', // Recommended to keep only the ID
-        'supplier_id', // ADDED: New field for supplier association
+        'category_id',
+        'supplier_id',
         'purchase_cost',
         'selling_price',
         'inventory_unit',
@@ -26,21 +27,15 @@ class Product extends Model
         'size',
     ];
 
-    /**
-     * Relationship: The supplier that provides this product.
-     */
     public function supplier()
     {
         return $this->belongsTo(Supplier::class, 'supplier_id');
     }
 
-    /**
-     * Relationship: The category of the product.
-     */
     public function category()
-{
-    return $this->belongsTo(SectorCategory::class, 'category_id');
-}
+    {
+        return $this->belongsTo(SectorCategory::class, 'category_id');
+    }
 
     public function transactions() 
     {
@@ -50,13 +45,14 @@ class Product extends Model
     protected static function booted()
     {
         static::saved(function ($product) {
-            if ($product->initial_stock <= $product->alert_stock_level && !$product->alert_sent) {
+            // FIXED: Changed logic to track 'stock' instead of 'initial_stock'
+            if ($product->stock <= $product->alert_stock_level && !$product->alert_sent) {
                 $adminUsers = User::where('role', 'admin')->get();
                 if ($adminUsers->isNotEmpty()) {
                     Notification::send($adminUsers, new LowStockAlert($product));
                 }
                 $product->updateQuietly(['alert_sent' => true]);
-            } elseif ($product->initial_stock > $product->alert_stock_level && $product->alert_sent) {
+            } elseif ($product->stock > $product->alert_stock_level && $product->alert_sent) {
                 $product->updateQuietly(['alert_sent' => false]);
             }
         });
@@ -64,14 +60,15 @@ class Product extends Model
 
     public function checkAndSendAlert()
     {
-        if ($this->initial_stock <= $this->alert_stock_level) {
+        // FIXED: Track active 'stock' level for standard email routines
+        if ($this->stock <= $this->alert_stock_level) {
             $cacheKey = 'low_stock_alert_' . $this->id;
             if (!Cache::has($cacheKey)) {
                 $adminEmail = 'gaihrenirmal2021@gmail.com';
                 $productName = $this->name;
 
                 Mail::raw(
-                    "CRITICAL STOCK ALERT!\n\nProduct: {$this->name}\nRemaining Stock: {$this->initial_stock} {$this->inventory_unit}\nThreshold: {$this->alert_stock_level}",
+                    "CRITICAL STOCK ALERT!\n\nProduct: {$this->name}\nRemaining Stock: {$this->stock} {$this->inventory_unit}\nThreshold: {$this->alert_stock_level}",
                     function ($message) use ($adminEmail, $productName) {
                         $message->to($adminEmail)->subject('Low Stock Alert: ' . $productName);
                     }
