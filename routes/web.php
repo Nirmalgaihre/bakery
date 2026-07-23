@@ -153,6 +153,7 @@ Route::middleware(['web', 'auth', 'verified'])->prefix('admin')->name('admin.')-
         Route::post('products/import', [AdminProductController::class, 'import'])->name('products.import');
         Route::get('products/import/template', [AdminProductController::class, 'importTemplate'])->name('products.import.template');
         Route::get('products', [AdminProductController::class, 'index'])->name('products.index');
+        Route::get('customers/{customer}/purchased-products', [CustomerController::class, 'purchasedProducts'])->name('customers.purchased-products');
         Route::get('products/{product}', [AdminProductController::class, 'show'])->name('products.show');
 
         // ---------------------------------------------------------------
@@ -160,6 +161,7 @@ Route::middleware(['web', 'auth', 'verified'])->prefix('admin')->name('admin.')-
         // ---------------------------------------------------------------
         Route::get('customers/create', [CustomerController::class, 'create'])->name('customers.create');
         Route::post('customers', [CustomerController::class, 'store'])->name('customers.store');
+        Route::get('customers/manage', [CustomerController::class, 'manage'])->name('customers.manage');
         Route::get('customers/{customer}/edit', [CustomerController::class, 'edit'])->name('customers.edit');
         Route::put('customers/{customer}', [CustomerController::class, 'update'])->name('customers.update');
         Route::delete('customers/{customer}', [CustomerController::class, 'destroy'])->name('customers.destroy');

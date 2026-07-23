@@ -11,25 +11,64 @@ use App\Models\Customer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage; // Ensured Storage facade is imported for your image generation
-use Illuminate\Support\Facades\Log; // Added for logging errors
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class InvoiceController extends Controller
 {
     /**
-     * Display a listing of invoices.
+     * Display a listing of invoices with search, filtering, and summary metrics.
      */
-public function index()
-{
-    // फोन नम्बर अनुसार Grouping गरेर डेटा लिने
-    $invoices = \App\Models\Invoice::with(['customer', 'items'])
-        ->with('supplier') // Eager load supplier
-        ->groupBy(function($invoice) {
-            return $invoice->customer ? $invoice->customer->phone_number : 'Walk-in';
-        });
+    public function index(Request $request)
+    {
+        $query = Invoice::with(['customer', 'items', 'supplier']);
 
-    return view('admin.invoices.index', compact('invoices'));
-}
+        // 1. Search Filter (Invoice #, Customer Name, or PAN)
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+            $query->where(function ($q) use ($search) {
+                $q->where('invoice_no', 'like', "%{$search}%")
+                  ->orWhere('id', 'like', "%{$search}%")
+                  ->orWhereHas('customer', function ($cQuery) use ($search) {
+                      $cQuery->where('name', 'like', "%{$search}%")
+                             ->orWhere('phone_number', 'like', "%{$search}%")
+                             ->orWhere('pan_number', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        // 2. Payment Status Filter
+        if ($request->filled('status')) {
+            $status = strtolower($request->status);
+            if ($status === 'paid') {
+                $query->whereRaw('paid_amount >= grand_total AND grand_total > 0');
+            } elseif ($status === 'partial') {
+                $query->whereRaw('paid_amount > 0 AND paid_amount < grand_total');
+            } elseif ($status === 'unpaid') {
+                $query->whereRaw('paid_amount = 0 OR paid_amount IS NULL');
+            }
+        }
+
+        // 3. Fiscal Year Filter (Optional)
+        if ($request->filled('fiscal_year')) {
+            $query->where('fiscal_year', $request->fiscal_year);
+        }
+
+        // 4. Pre-calculate Summary Totals before applying pagination
+        $totalInvoicedAmount = (clone $query)->sum('grand_total');
+        $totalPaidAmount     = (clone $query)->sum('paid_amount');
+        $totalDueAmount      = max(0, $totalInvoicedAmount - $totalPaidAmount);
+
+        // 5. Fetch Paginated Records
+        $invoices = $query->latest()->paginate(15)->appends($request->query());
+
+        return view('admin.invoices.index', compact(
+            'invoices',
+            'totalInvoicedAmount',
+            'totalPaidAmount',
+            'totalDueAmount'
+        ));
+    }
 
     /**
      * Show the form for creating a new invoice.
@@ -37,10 +76,10 @@ public function index()
     public function create()
     {
         // 1. Fetch Customers
-        $customers = Customer::all();
+        $customers = Customer::orderBy('name')->get();
 
         // 2. Fetch Products with stock
-        $products = Product::where('initial_stock', '>', 0)->get(); // Changed from 'stock' to 'initial_stock' for consistency
+        $products = Product::where('initial_stock', '>', 0)->get();
 
         // 3. Generate Invoice Number
         $invoiceNo = 'INV-' . date('Ymd') . '-' . str_pad(rand(1, 999), 3, '0', STR_PAD_LEFT);
@@ -60,7 +99,7 @@ public function index()
             DB::transaction(function () use ($request) {
                 $invoice = Invoice::create([
                     'invoice_no'      => $request->invoice_no,
-                    'invoice_date'    => $request->invoice_date,
+                    'invoice_date'    => $request->invoice_date ?? now()->toDateString(),
                     'customer_id'     => $request->customer_id,
                     'patient_name'    => $request->patient_name ?? 'Walk-in',
                     'patient_address' => $request->patient_address ?? 'N/A',
@@ -72,21 +111,20 @@ public function index()
                     $product = Product::findOrFail($item['product_id']);
                     $qty = ($item['unit'] === 'g') ? ($item['qty'] / 1000) : $item['qty'];
 
-                    if ($product->initial_stock < $qty) throw new \Exception("Insufficient stock for {$product->name}"); // Changed from 'stock' to 'initial_stock'
+                    if ($product->initial_stock < $qty) {
+                        throw new \Exception("Insufficient stock for {$product->name}");
+                    }
 
-                    $product->decrement('initial_stock', $qty); // Changed from 'stock' to 'initial_stock'
+                    $product->decrement('initial_stock', $qty);
                     $invoice->items()->create([
                         'product_id' => $item['product_id'],
                         'qty'        => $item['qty'],
                         'unit'       => $item['unit'],
-                        'price'      => $product->selling_price
+                        'price'      => $product->selling_price ?? $item['price'] ?? 0
                     ]);
                 }
-                // Note: This store method is simpler than SalesController::store (POS)
-                // It doesn't handle discount, vat, paid_amount, payment_method, status, remarks, nepali_date.
-                // The edit/update methods below are more comprehensive, aligning with SalesController::store.
-                // This might lead to inconsistencies if invoices are created via both methods.
             });
+
             return response()->json(['success' => true, 'redirect' => route('admin.invoices.index')]);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
@@ -94,29 +132,43 @@ public function index()
     }
 
     /**
+     * Display single invoice details.
+     */
+    public function show($id)
+    {
+        $invoice = Invoice::with(['items.product', 'supplier', 'customer'])->findOrFail($id);
+
+        $calculatedSubtotal = $invoice->items->sum(function($item) {
+            return $item->qty * $item->price;
+        });
+
+        return view('admin.invoices.show', compact('invoice', 'calculatedSubtotal'));
+    }
+
+    /**
      * Show the form for editing the specified invoice.
      */
     public function edit(Invoice $invoice)
-{
-    $invoice->load(['items.product', 'customer']);
+    {
+        $invoice->load(['items.product', 'customer']);
 
-    $itemLines = $invoice->items->map(function ($item) {
-        return [
-            'invoice_item_id' => $item->id,
-            'product_id' => $item->product_id,
-            'rate_per_kg' => $item->price,
-            'quantity_kg' => floor($item->qty),
-            'quantity_gm' => round(($item->qty - floor($item->qty)) * 1000),
-            'total' => $item->total,
-            '_delete' => false,
-        ];
-    })->values();
+        $itemLines = $invoice->items->map(function ($item) {
+            return [
+                'invoice_item_id' => $item->id,
+                'product_id'      => $item->product_id,
+                'rate_per_kg'     => $item->price,
+                'quantity_kg'     => floor($item->qty),
+                'quantity_gm'     => round(($item->qty - floor($item->qty)) * 1000),
+                'total'           => $item->total,
+                '_delete'         => false,
+            ];
+        })->values();
 
-    $customers = Customer::orderBy('name')->get();
-    $products = Product::orderBy('name')->get();
+        $customers = Customer::orderBy('name')->get();
+        $products  = Product::orderBy('name')->get();
 
-    return view('admin.invoices.edit', compact('invoice', 'itemLines', 'customers', 'products'));
-}
+        return view('admin.invoices.edit', compact('invoice', 'itemLines', 'customers', 'products'));
+    }
 
     /**
      * Update the specified invoice in storage.
@@ -124,24 +176,23 @@ public function index()
     public function update(Request $request, Invoice $invoice)
     {
         $validated = $request->validate([
-            'invoice_date'        => 'required|date', // Add this line for AD date
-            'customer_id'         => 'required|exists:customers,id',
-            'payment_method'      => 'required|string|in:Cash,Online Payment,Bank Transfer,Credit Sale',
-            'include_vat'         => 'required|boolean',
-            'discount'            => 'required|numeric|min:0',
-            'paid_amount'         => 'required|numeric|min:0',
-            'remarks'             => 'nullable|string|max:1000',
-            'transaction_date'    => 'nullable|string|max:20', // Assuming this is nepali_date
-            'items'               => 'required|array|min:1',
-            'items.*.product_id'  => 'required|integer|exists:products,id',
-            'items.*.invoice_item_id' => 'nullable|integer|exists:invoice_items,id', // Existing item ID
-            'items.*.rate_per_kg' => 'required|numeric|min:0',
-            'items.*.quantity_kg' => 'required|numeric|min:0',
-            'items.*.quantity_gm' => 'required|numeric|min:0|max:999.99',
-            'items.*._delete'     => 'nullable|boolean', // Flag to delete item
+            'invoice_date'            => 'required|date',
+            'customer_id'             => 'required|exists:customers,id',
+            'payment_method'          => 'required|string|in:Cash,Online Payment,Bank Transfer,Credit Sale',
+            'include_vat'             => 'required|boolean',
+            'discount'                => 'required|numeric|min:0',
+            'paid_amount'             => 'required|numeric|min:0',
+            'remarks'                 => 'nullable|string|max:1000',
+            'transaction_date'        => 'nullable|string|max:20',
+            'items'                   => 'required|array|min:1',
+            'items.*.product_id'      => 'required|integer|exists:products,id',
+            'items.*.invoice_item_id' => 'nullable|integer|exists:invoice_items,id',
+            'items.*.rate_per_kg'     => 'required|numeric|min:0',
+            'items.*.quantity_kg'     => 'required|numeric|min:0',
+            'items.*.quantity_gm'     => 'required|numeric|min:0|max:999.99',
+            'items.*._delete'         => 'nullable|boolean',
         ]);
 
-        // Check for valid quantities among non-deleted items
         $hasValidQty = collect($validated['items'])->contains(function ($item) {
             return !isset($item['_delete']) && ((float)$item['quantity_kg'] + (float)$item['quantity_gm'] / 1000) > 0;
         });
@@ -153,10 +204,9 @@ public function index()
         try {
             DB::transaction(function () use ($validated, $invoice) {
                 $subtotal = 0;
-                $processedItemIds = []; // To track items that are updated/created
+                $processedItemIds = [];
 
                 // Step 1: Revert stock for all existing items in the invoice
-                // This ensures we start with a clean slate for stock calculation
                 foreach ($invoice->items as $existingItem) {
                     $product = Product::lockForUpdate()->find($existingItem->product_id);
                     if ($product) {
@@ -166,16 +216,15 @@ public function index()
 
                 // Step 2: Process new/updated/deleted items
                 foreach ($validated['items'] as $itemInput) {
-                    // Handle item deletion
                     if (isset($itemInput['_delete']) && $itemInput['_delete']) {
                         if (isset($itemInput['invoice_item_id'])) {
                             $invoice->items()->where('id', $itemInput['invoice_item_id'])->delete();
                         }
-                        continue; // Skip to next item
+                        continue;
                     }
 
                     $totalWeight = (float)$itemInput['quantity_kg'] + ((float)$itemInput['quantity_gm'] / 1000);
-                    if ($totalWeight <= 0) continue; // Skip items with zero quantity
+                    if ($totalWeight <= 0) continue;
 
                     $product = Product::lockForUpdate()->findOrFail($itemInput['product_id']);
                     if ((float)$product->initial_stock < $totalWeight) {
@@ -195,44 +244,40 @@ public function index()
                     ];
 
                     if (isset($itemInput['invoice_item_id'])) {
-                        // Update existing item
                         $invoice->items()->where('id', $itemInput['invoice_item_id'])->update($itemData);
                         $processedItemIds[] = $itemInput['invoice_item_id'];
                     } else {
-                        // Create new item
                         $newItem = $invoice->items()->create($itemData);
                         $processedItemIds[] = $newItem->id;
                     }
 
-                    // Decrement stock for the new/updated quantity
                     $product->decrement('initial_stock', $totalWeight);
                 }
 
-                // Step 3: Delete any remaining old items that were not in the validated input
+                // Step 3: Delete old items omitted from validated payload
                 $invoice->items()->whereNotIn('id', $processedItemIds)->delete();
 
-                // Step 4: Recalculate invoice totals and update customer due
+                // Step 4: Recalculate totals & adjust customer balance
                 $discount   = (float)$validated['discount'];
                 $taxable    = max(0, $subtotal - $discount);
                 $vat        = (bool)$validated['include_vat'] ? round($taxable * 0.13, 2) : 0.00;
                 $grandTotal = round($taxable + $vat, 2);
                 $paidAmount = round($validated['payment_method'] === 'Credit Sale' ? min((float)$validated['paid_amount'], $grandTotal) : $grandTotal, 2);
 
-                // Update customer's previous_due based on old vs new grand_total and paid_amount
                 $oldDue = $invoice->grand_total - $invoice->paid_amount;
                 $newDue = $grandTotal - $paidAmount;
 
                 if ($oldDue != $newDue) {
-                    $customer = Customer::find($invoice->customer_id); // Use invoice's customer_id
+                    $customer = Customer::find($invoice->customer_id);
                     if ($customer) {
-                        $customer->decrement('previous_due', $oldDue); // Revert old due
-                        $customer->increment('previous_due', $newDue); // Apply new due
+                        $customer->decrement('previous_due', $oldDue);
+                        $customer->increment('previous_due', $newDue);
                         $customer->save();
                     }
                 }
 
                 $invoice->update([
-                    'invoice_date'    => $validated['invoice_date'], // Add this line
+                    'invoice_date'    => $validated['invoice_date'],
                     'customer_id'     => $validated['customer_id'],
                     'payment_method'  => $validated['payment_method'],
                     'include_vat'     => $validated['include_vat'],
@@ -250,7 +295,7 @@ public function index()
 
             return response()->json([
                 'success'  => true,
-                'message'  => 'Invoice #' . $invoice->invoice_no . ' updated successfully!',
+                'message'  => 'Invoice #' . ($invoice->invoice_no ?? $invoice->id) . ' updated successfully!',
                 'redirect' => route('admin.invoices.show', $invoice->id),
             ]);
 
@@ -274,7 +319,7 @@ public function index()
     {
         try {
             DB::transaction(function () use ($invoice) {
-                // Revert stock for all items in the invoice
+                // Revert stock for all items
                 foreach ($invoice->items as $item) {
                     $product = Product::find($item->product_id);
                     if ($product) {
@@ -282,7 +327,7 @@ public function index()
                     }
                 }
 
-                // Adjust customer's previous_due if this was a credit sale
+                // Adjust customer due
                 $dueAmount = $invoice->grand_total - $invoice->paid_amount;
                 if ($dueAmount > 0 && $invoice->customer_id) {
                     $customer = Customer::find($invoice->customer_id);
@@ -301,32 +346,30 @@ public function index()
         }
     }
 
+    /**
+     * Generate PNG image for social/messenger sharing.
+     */
     public function generateShareableImage($id)
     {
-        $invoice = \App\Models\Invoice::with('customer')->findOrFail($id);
+        $invoice = Invoice::with('customer')->findOrFail($id);
         
-        // 1. Render the HTML view as a string
         $html = view('admin.pdf.statement', compact('invoice'))->render();
 
-        // 2. Define the path
-        $fileName = 'Statement_' . $invoice->invoice_no . '_' . time() . '.png';
+        $fileName = 'Statement_' . ($invoice->invoice_no ?? $invoice->id) . '_' . time() . '.png';
         $directory = 'public/shares';
         
-        // Ensure directory exists
         if (!Storage::exists($directory)) {
             Storage::makeDirectory($directory);
         }
         
         $path = storage_path('app/' . $directory . '/' . $fileName);
 
-        // 3. Generate the PNG Image
-        Browsershot::html($html) // Assuming Browsershot is configured
+        Browsershot::html($html)
             ->setScreenshotType('png')
             ->windowSize(1080, 1350)
             ->deviceScaleFactor(2)
             ->save($path);
 
-        // 4. Return the public URL for the share link
         return asset('storage/shares/' . $fileName);
     }
 
@@ -336,15 +379,13 @@ public function index()
     public function generateShareLink(Invoice $invoice)
     {
         try {
-            // Reset visibility parameter whenever admin creates a fresh communication share link
             $invoice->update(['is_shared_viewed' => false]);
 
-            // Construct secure single-use token mapping strings
             $payload = $invoice->id . '-' . time() . '-' . uniqid();
             $token = Crypt::encryptString($payload);
 
             return response()->json([
-                'success' => true,
+                'success'   => true,
                 'share_url' => route('invoice.public_share', ['token' => $token])
             ], 200);
 
@@ -354,11 +395,11 @@ public function index()
     }
 
     /**
-     * Display the public shared view of the invoice using a secure token.
+     * Display public shared web invoice view.
      */
     public function showWebInvoice(Invoice $invoice)
     {
-        $relatedAdjustments = \App\Models\InventoryAdjustment::where('reference_note', 'LIKE', '%' . $invoice->invoice_no . '%')
+        $relatedAdjustments = InventoryAdjustment::where('reference_note', 'LIKE', '%' . ($invoice->invoice_no ?? $invoice->id) . '%')
             ->with('product')
             ->get();
 
@@ -370,38 +411,20 @@ public function index()
     }
 
     /**
-     * ==========================================
-     * ADDED: Customer Financial & Invoice Ledger
-     * ==========================================
+     * Display Customer Financial & Invoice Ledger.
      */
     public function customerLedger($customer_id)
     {
-        // 1. Fetch target customer data details safely
         $customer = Customer::findOrFail($customer_id);
         $customerName = $customer->name;
 
-        // 2. Fetch customer invoices and EAGER LOAD internal row line items and nested product relations
         $customerInvoices = Invoice::where('customer_id', $customer_id)
             ->with('items.product') 
             ->latest()
             ->get();
 
-        // 3. Fallback ledger tracking queries if applicable for transaction grids
         $ledgerLogs = DB::table('ledger_logs')->where('customer_id', $customer_id)->get(); 
 
         return view('admin.sales.customer-ledger', compact('customerInvoices', 'customerName', 'customer', 'ledgerLogs'));
     }
-    // App\Http\Controllers\Admin\InvoiceController.php
-public function show($id)
-{
-    // Fetch the invoice
-    $invoice = \App\Models\Invoice::with(['items.product', 'supplier'])->findOrFail($id); // Eager load supplier
-
-    // If you are using 'invoice_items' table:
-    $calculatedSubtotal = $invoice->items->sum(function($item) {
-        return $item->qty * $item->price; // Corrected from 'quantity' to 'qty'
-    });
-
-    return view('admin.invoices.show', compact('invoice', 'calculatedSubtotal'));
-}
 }

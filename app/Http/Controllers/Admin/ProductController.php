@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\SectorCategory; // This is your actual category model
+use App\Models\SectorCategory; 
 use App\Models\Product;
 use App\Models\Supplier;
 use App\Exports\ProductsExport;
@@ -18,7 +18,7 @@ class ProductController extends Controller
     public function __construct()
     {
         $this->middleware('can:create,App\Models\Product')->only(['create', 'store', 'importForm', 'import', 'importTemplate']);
-        // Ensure your Route Model Binding is set up for 'product'
+        // Note: Ensure your route parameter in routes/web.php is named exactly {product}
         $this->middleware('can:update,product')->only(['edit', 'update']);
     }
 
@@ -46,7 +46,7 @@ class ProductController extends Controller
         $validated = $request->validate([
             'item_code'         => 'required|string|max:50|unique:products,item_code',
             'name'              => 'required|string|max:255|unique:products,name',
-            'category_id'       => 'required|exists:sector_categories,id', // Validating against correct table
+            'category_id'       => 'required|exists:sector_categories,id',
             'supplier_id'       => 'nullable|exists:suppliers,id',
             'color'             => 'nullable|string|max:50',
             'size'              => 'nullable|string|max:50',
@@ -54,7 +54,7 @@ class ProductController extends Controller
             'selling_price'     => 'required|numeric|min:0',
             'inventory_unit'    => 'required|string|in:kg,paau,bottle,cartoon,boxes',
             'initial_stock'     => 'required|numeric|min:0',
-            'alert_stock_level' => 'required|integer|min:0',
+            'alert_stock_level' => 'required|numeric|min:0', //  Changed to numeric
         ]);
 
         Product::create([
@@ -78,7 +78,43 @@ class ProductController extends Controller
 
     public function edit(Product $product)
     {
-        return view('admin.products.edit', compact('product'));
+        $categories = SectorCategory::all();
+        $suppliers = Supplier::all(); 
+
+        return view('admin.products.edit', compact('product', 'categories', 'suppliers'));
+    }
+
+    public function update(Request $request, Product $product)
+    {
+        $validated = $request->validate([
+            'item_code'         => 'required|string|max:50|unique:products,item_code,' . $product->id,
+            'name'              => 'required|string|max:255|unique:products,name,' . $product->id,
+            'category_id'       => 'required|exists:sector_categories,id',
+            'supplier_id'       => 'nullable|exists:suppliers,id',
+            'color'             => 'nullable|string|max:50',
+            'size'              => 'nullable|string|max:50',
+            'purchase_cost'     => 'required|numeric|min:0',
+            'selling_price'     => 'required|numeric|min:0',
+            'inventory_unit'    => 'required|string|in:kg,paau,bottle,cartoon,boxes',
+            'initial_stock'     => 'required|numeric|min:0',
+            'alert_stock_level' => 'required|numeric|min:0', //  Changed to numeric here too!
+        ]);
+
+        $product->update([
+            'item_code'         => $validated['item_code'],
+            'name'              => $validated['name'],
+            'category_id'       => $validated['category_id'],
+            'supplier_id'       => $validated['supplier_id'] ?? null,
+            'purchase_cost'     => $validated['purchase_cost'],
+            'selling_price'     => $validated['selling_price'],
+            'inventory_unit'    => $validated['inventory_unit'],
+            'initial_stock'     => $validated['initial_stock'],
+            'alert_stock_level' => $validated['alert_stock_level'],
+            'color'             => $validated['color'],
+            'size'              => $validated['size'],
+        ]);
+
+        return redirect()->route('admin.products.index')->with('success', 'Product updated successfully!');
     }
 
     public function export(Request $request, $type)
