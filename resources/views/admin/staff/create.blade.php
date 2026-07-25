@@ -99,8 +99,8 @@
                     <select id="role" name="role" required
                         class="w-full pl-9 pr-4 py-2 bg-white border @error('role') border-rose-400 focus:border-rose-500 focus:ring-rose-500 @else border-slate-200 focus:border-blue-500 focus:ring-blue-500 @enderror rounded-md text-xs shadow-sm focus:outline-none focus:ring-1 transition-colors appearance-none">
                         <option value="">Select a specific group access rule...</option>
-                        <option value="admin" {{ old('role') == 'admin' ? 'selected' : '' }}>Administrator</option>
-                        <option value="accountant" {{ old('role') == 'accountant' ? 'selected' : '' }}>Accountant Hub
+                        <option value="admin" {{ old('role') == 'admin' ? 'selected' : '' }}>Admin</option>
+                        <option value="accountant" {{ old('role') == 'accountant' ? 'selected' : '' }}>Accountant
                         </option>
                     </select>
                     <span class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400">

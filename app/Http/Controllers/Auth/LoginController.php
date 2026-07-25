@@ -138,12 +138,42 @@ class LoginController extends Controller
             Auth::login($user);
             
             session()->forget(['otp', 'otp_email', 'otp_expires_at']);
-            
-            return redirect('/admin/dashboard')->with('status', 'Login successful! Welcome back.');
+
+            // *** FIX ***
+            // Previously this always did: redirect('/admin/dashboard')
+            // That route is role:admin only, so every accountant login
+            // succeeded here and then got bounced with a 403
+            // "User does not have the right roles." on the very next request.
+            // Redirect based on the user's actual role instead.
+            return redirect($this->redirectPathForUser($user))
+                ->with('status', 'Login successful! Welcome back.');
         }
     }
 
     return redirect()->route('otp.view')->withErrors(['otp' => 'Invalid or expired OTP. Please try again.'])->withInput();
+    }
+
+    /**
+     * Decide the post-login landing URL based on the user's role.
+     *
+     * Dynamic: reads the role straight from Spatie (hasRole), so any
+     * new staff member created via the Staff form works immediately —
+     * no manual php artisan tinker fix-ups required.
+     */
+    private function redirectPathForUser(User $user): string
+    {
+        if ($user->hasRole('admin')) {
+            return '/admin/dashboard';
+        }
+
+        if ($user->hasRole('accountant')) {
+            // Accountants don't have route-level access to /admin/dashboard.
+            // Send them to a route inside the shared admin+accountant zone instead.
+            return route('admin.invoices.index');
+        }
+
+        // Fallback for any future role not yet wired to a landing page.
+        return '/login';
     }
 
     public function showForgotPasswordForm()
