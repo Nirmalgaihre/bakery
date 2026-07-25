@@ -49,6 +49,17 @@ class SalesController extends Controller
 
         // Pre-built as a plain array here (not inline in Blade) — Blade's @json directive
         // cannot reliably parse a ->map(function(){ return [...]; }) closure argument.
+        $customerOptions = $customers->map(function ($customer) {
+            return [
+                'id'             => $customer->id,
+                'name'           => $customer->name,
+                'phone_number'   => $customer->phone_number,
+                'previous_due'   => $customer->previous_due,
+            ];
+        })->values();
+
+        // Pre-built as a plain array here (not inline in Blade) — Blade's @json directive
+        // cannot reliably parse a ->map(function(){ return [...]; }) closure argument.
         $supplierOptions = $suppliers->map(function ($supplier) {
             return [
                 'id'             => $supplier->id,
@@ -64,7 +75,7 @@ class SalesController extends Controller
         $currentNepaliDate   = \Anuzpandey\LaravelNepaliDate\LaravelNepaliDate::from(date('Y-m-d'))->toNepaliDate(format: 'Y-m-d');
 
         return view('admin.sales.pos.create', compact(
-            'products', 'customers', 'suppliers', 'supplierOptions', 'currentNepaliDate', 'next_invoice_number'
+            'products', 'customers', 'customerOptions', 'suppliers', 'supplierOptions', 'currentNepaliDate', 'next_invoice_number'
         ));
     }
 
