@@ -74,36 +74,76 @@ class LoginController extends Controller
     $mail->addAddress($email);
     $mail->isHTML(true);
     $mail->Subject = 'Verify Your Deurali Chemicals Account';
-    
-    $mail->Body = "
-    <div style='font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; max-width: 500px; margin: 40px auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background: #ffffff;'>
-        <!-- Header -->
-        <div style='background-color: #0f172a; padding: 30px; text-align: center;'>
-            <h1 style='color: #ffffff; margin: 0; font-size: 20px; letter-spacing: 0.5px;'>Deurali Chemicals</h1>
-        </div>
-        
-        <!-- Content -->
-        <div style='padding: 40px;'>
-            <h2 style='color: #1e293b; margin-top: 0;'>Verification Code</h2>
-            <p style='color: #64748b; line-height: 1.6;'>Hello,</p>
-            <p style='color: #64748b; line-height: 1.6;'>You are attempting to sign in to your Deurali Chemicals account. Please use the verification code below to proceed.</p>
-            
-            <div style='text-align: center; margin: 35px 0;'>
-                <div style='display: inline-block; font-size: 32px; font-weight: 800; color: #0f172a; background: #f8fafc; padding: 15px 30px; border-radius: 8px; border: 2px dashed #cbd5e1; letter-spacing: 8px;'>{$otp}</div>
-            </div>
-            
-            <p style='color: #64748b; font-size: 14px; line-height: 1.6;'>This code is valid for <strong>10 minutes</strong>. For your security, <strong>do not share this code</strong> with anyone.</p>
-            
-            <div style='margin-top: 30px; padding-top: 20px; border-top: 1px solid #f1f5f9;'>
-                <p style='color: #94a3b8; font-size: 13px;'>If you did not request this verification, please ignore this email. Your account remains secure and no changes have been made.</p>
-            </div>
-        </div>
-        
-        <!-- Footer -->
-        <div style='background-color: #f8fafc; padding: 20px; text-align: center; color: #94a3b8; font-size: 12px;'>
-            &copy; " . date('Y') . " Deurali Chemicals Pvt Ltd. All rights reserved.
-        </div>
-    </div>";
+
+$mail->Body = "
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+</head>
+<body style='margin: 0; padding: 0; background-color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif;'>
+    <table border='0' cellpadding='0' cellspacing='0' width='100%' style='min-height: 100vh; padding: 40px 20px;'>
+        <tr>
+            <td align='center' valign='middle'>
+                <table border='0' cellpadding='0' cellspacing='0' width='100%' style='max-width: 520px; background-color: #1e293b; border: 1px solid #334155; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);'>
+                    
+                    <!-- Header -->
+                    <tr>
+                        <td style='padding: 36px 36px 24px 36px; text-align: center; border-bottom: 1px solid #334155;'>
+                            <img src='https://deuralichemicals.com.np/storage/img/dcl.png' alt='Deurali Chemicals Logo' style='height: 48px; width: auto; margin-bottom: 12px; display: inline-block;' />
+                            <h1 style='color: #ffffff; margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.025em;'>Deurali Chemicals</h1>
+                            <p style='color: #60a5fa; margin: 4px 0 0 0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;'>Security Verification</p>
+                        </td>
+                    </tr>
+
+                    <!-- Body Content -->
+                    <tr>
+                        <td style='padding: 36px;'>
+                            <h2 style='color: #f8fafc; margin-top: 0; font-size: 18px; font-weight: 600;'>Your Verification Code</h2>
+                            <p style='color: #94a3b8; line-height: 1.6; font-size: 14px; margin-bottom: 24px;'>
+                                Hello,<br><br>
+                                You are attempting to sign in to your Deurali Chemicals portal account. Please use the verification code below to authorize your session:
+                            </p>
+
+                            <!-- OTP Box -->
+                            <table border='0' cellpadding='0' cellspacing='0' width='100%'>
+                                <tr>
+                                    <td align='center' style='padding: 12px 0 28px 0;'>
+                                        <div style='display: inline-block; font-family: Monospace, -apple-system, BlinkMacSystemFont, sans-serif; font-size: 32px; font-weight: 800; color: #38bdf8; background-color: #0f172a; padding: 18px 36px; border-radius: 12px; border: 1px dashed #38bdf8; letter-spacing: 10px; box-shadow: inset 0 2px 4px 0 rgba(0,0,0,0.4);'>
+                                            {$otp}
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <p style='color: #94a3b8; font-size: 13px; line-height: 1.5; margin-bottom: 20px;'>
+                                This code is valid for <strong style='color: #f8fafc;'>10 minutes</strong>. For account security, <strong style='color: #f8fafc;'>never share this code</strong> with anyone.
+                            </p>
+
+                            <div style='border-top: 1px solid #334155; padding-top: 20px; margin-top: 24px;'>
+                                <p style='color: #64748b; font-size: 12px; line-height: 1.5; margin: 0;'>
+                                    If you did not initiate this request, you can safely ignore this email. Your credentials remain safe and no unauthorized changes were made.
+                                </p>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style='background-color: #0f172a; padding: 20px; text-align: center; border-top: 1px solid #334155;'>
+                            <p style='color: #64748b; font-size: 12px; margin: 0;'>
+                                &copy; " . date('Y') . " Deurali Chemicals Pvt Ltd. All rights reserved.
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>";
 
     $mail->send();
 }
@@ -187,39 +227,84 @@ public function sendResetLink(Request $request)
 
     $user = User::where('email', $request->email)->first();
 
-    // SECURE: Always return success, even if user doesn't exist.
-    // This prevents attackers from finding valid accounts (Account Enumeration).
+    // SECURE: Always return success, even if user doesn't exist to prevent account enumeration.
     if ($user) {
+        // Plain raw token for the email link
         $token = Str::random(60);
         
+        // Save SHA-256 hashed version in DB for safe string matching
         DB::table('password_resets')->updateOrInsert(
             ['email' => $request->email],
-            ['token' => Hash::make($token), 'created_at' => Carbon::now()]
+            [
+                'token' => hash('sha256', $token), 
+                'created_at' => Carbon::now()
+            ]
         );
 
         $resetLink = url('/password/reset/' . $token . '?email=' . urlencode($request->email));
 
-        // Integrated professional template
+        // Professional Email Body matching new design system
         $body = "
-        <div style='font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif; max-width: 500px; margin: 40px auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background: #ffffff;'>
-            <div style='background-color: #0f172a; padding: 30px; text-align: center;'>
-                <h1 style='color: #ffffff; margin: 0; font-size: 20px;'>Deurali Chemicals</h1>
-            </div>
-            <div style='padding: 40px;'>
-                <h2 style='color: #1e293b; margin-top: 0;'>Password Reset Request</h2>
-                <p style='color: #64748b; line-height: 1.6;'>We received a request to reset the password for your Deurali Chemicals account. If you did not make this request, please ignore this email.</p>
-                
-                <div style='text-align: center; margin: 30px 0;'>
-                    <a href='{$resetLink}' style='background-color: #0f172a; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;'>Reset Password</a>
-                </div>
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset='UTF-8'>
+            <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+        </head>
+        <body style='margin: 0; padding: 0; background-color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif;'>
+            <table border='0' cellpadding='0' cellspacing='0' width='100%' style='min-height: 100vh; padding: 40px 20px;'>
+                <tr>
+                    <td align='center' valign='middle'>
+                        <table border='0' cellpadding='0' cellspacing='0' width='100%' style='max-width: 520px; background-color: #1e293b; border: 1px solid #334155; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);'>
+                            <!-- Header -->
+                            <tr>
+                                <td style='padding: 36px 36px 24px 36px; text-align: center; border-bottom: 1px solid #334155;'>
+                                    <img src='https://deuralichemicals.com.np/storage/img/dcl.png' alt='Deurali Chemicals Logo' style='height: 48px; width: auto; margin-bottom: 12px; display: inline-block;' />
+                                    <h1 style='color: #ffffff; margin: 0; font-size: 22px; font-weight: 700; tracking-tight: -0.025em;'>Deurali Chemicals</h1>
+                                    <p style='color: #60a5fa; margin: 4px 0 0 0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;'>Enterprise Portal</p>
+                                </td>
+                            </tr>
+                            <!-- Content -->
+                            <tr>
+                                <td style='padding: 36px;'>
+                                    <h2 style='color: #f8fafc; margin-top: 0; font-size: 18px; font-weight: 600;'>Password Reset Request</h2>
+                                    <p style='color: #94a3b8; line-height: 1.6; font-size: 14px; margin-bottom: 28px;'>
+                                        We received a request to reset the password for your Deurali Chemicals portal account. Click the button below to establish new credentials:
+                                    </p>
+                                    
+                                    <!-- Button -->
+                                    <table border='0' cellpadding='0' cellspacing='0' width='100%'>
+                                        <tr>
+                                            <td align='center' style='padding-bottom: 28px;'>
+                                                <a href='{$resetLink}' target='_blank' style='background-color: #2563eb; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 14px; display: inline-block; shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.4);'>Reset Password</a>
+                                            </td>
+                                        </tr>
+                                    </table>
 
-                <p style='color: #64748b; font-size: 13px;'>This link will expire in 30 minutes. If the button doesn't work, copy and paste this link into your browser:</p>
-                <p style='color: #3b82f6; font-size: 12px; word-break: break-all;'>{$resetLink}</p>
-            </div>
-            <div style='background-color: #f8fafc; padding: 20px; text-align: center; color: #94a3b8; font-size: 12px;'>
-                &copy; " . date('Y') . " Deurali Chemicals Pvt Ltd. All rights reserved.
-            </div>
-        </div>";
+                                    <div style='border-top: 1px solid #334155; padding-top: 20px;'>
+                                        <p style='color: #64748b; font-size: 12px; line-height: 1.5; margin-bottom: 8px;'>
+                                            This reset link is valid for <strong>30 minutes</strong>. If you did not initiate this request, you can safely disregard this message.
+                                        </p>
+                                        <p style='color: #64748b; font-size: 11px; line-height: 1.4; word-break: break-all; margin: 0;'>
+                                            Direct URL: <a href='{$resetLink}' style='color: #60a5fa; text-decoration: underline;'>{$resetLink}</a>
+                                        </p>
+                                    </div>
+                                </td>
+                            </tr>
+                            <!-- Footer -->
+                            <tr>
+                                <td style='background-color: #0f172a; padding: 20px; text-align: center; border-top: 1px solid #334155;'>
+                                    <p style='color: #64748b; font-size: 12px; margin: 0;'>
+                                        &copy; " . date('Y') . " Deurali Chemicals Pvt Ltd. All rights reserved.
+                                    </p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </body>
+        </html>";
 
         $this->sendMail($request->email, 'Reset Your Deurali Chemicals Password', $body);
     }
