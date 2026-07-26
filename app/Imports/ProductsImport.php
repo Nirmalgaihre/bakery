@@ -4,7 +4,6 @@ namespace App\Imports;
 
 use App\Models\Product;
 use App\Models\SectorCategory;
-use Illuminate\Support\Str;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithValidation;
@@ -13,8 +12,8 @@ use Maatwebsite\Excel\Concerns\SkipsOnFailure;
 use Maatwebsite\Excel\Concerns\SkipsErrors;
 use Maatwebsite\Excel\Concerns\SkipsFailures;
 use Maatwebsite\Excel\Concerns\Importable;
-use Maatwebsite\Excel\Concerns\WithChunkReading; // Added
-use Maatwebsite\Excel\Concerns\WithBatchInserts; // Added
+use Maatwebsite\Excel\Concerns\WithChunkReading;
+use Maatwebsite\Excel\Concerns\WithBatchInserts;
 
 class ProductsImport implements ToModel, WithHeadingRow, WithValidation, SkipsOnError, SkipsOnFailure, WithChunkReading, WithBatchInserts
 {
@@ -44,17 +43,18 @@ class ProductsImport implements ToModel, WithHeadingRow, WithValidation, SkipsOn
 
         // 2. Optimized Category Logic using local cache memory
         $categoryName = isset($row['category']) ? trim($row['category']) : 'Uncategorized';
-        
+
         if (!isset($this->categoryCache[$categoryName])) {
             $category = SectorCategory::firstOrCreate(['name' => $categoryName]);
             $this->categoryCache[$categoryName] = $category->id;
         }
         $categoryId = $this->categoryCache[$categoryName];
 
-        // 3. Fast item_code assignment without hitting a nested database loop
-        if (!$existed && empty($product->item_code)) {
-            $product->item_code = 'PROD-' . strtoupper(Str::random(5)) . '-' . rand(100, 999);
-        }
+        // 3. item_code is intentionally left untouched by import.
+        // There is no "item_code" column in the import sheet, so we never set or
+        // auto-generate one here. New products are created with item_code = null
+        // and must have a code assigned manually from the admin edit screen.
+        // Existing products keep whatever item_code they already had.
 
         // 4. Map the data structure
         $product->category_id        = $categoryId;
@@ -74,7 +74,7 @@ class ProductsImport implements ToModel, WithHeadingRow, WithValidation, SkipsOn
 
         $existed ? $this->updatedCount++ : $this->createdCount++;
 
-        // Note: Do NOT manually call $product->save() when using ToModel with Batch Inserts. 
+        // Note: Do NOT manually call $product->save() when using ToModel with Batch Inserts.
         // Returning the model lets Maatwebsite handle database batching optimizations automatically.
         return $product;
     }
@@ -84,11 +84,11 @@ class ProductsImport implements ToModel, WithHeadingRow, WithValidation, SkipsOn
      */
     public function batchSize(): int
     {
-        return 250; 
+        return 250;
     }
 
     /**
-     * Set how many rows are read into server memory at any given time 
+     * Set how many rows are read into server memory at any given time
      */
     public function chunkSize(): int
     {
