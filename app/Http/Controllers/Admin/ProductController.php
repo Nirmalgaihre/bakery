@@ -52,9 +52,9 @@ class ProductController extends Controller
             'size'              => 'nullable|string|max:50',
             'purchase_cost'     => 'required|numeric|min:0',
             'selling_price'     => 'required|numeric|min:0',
-            'inventory_unit'    => 'required|string|in:kg,paau,bottle,cartoon,boxes',
+            'inventory_unit'    => 'required|string|in:pcs,kg,paau,bottle,cartoon,boxes',
             'initial_stock'     => 'required|numeric|min:0',
-            'alert_stock_level' => 'required|numeric|min:0', //  Changed to numeric
+            'alert_stock_level' => 'required|numeric|min:0',
         ]);
 
         Product::create([
@@ -95,9 +95,9 @@ class ProductController extends Controller
             'size'              => 'nullable|string|max:50',
             'purchase_cost'     => 'required|numeric|min:0',
             'selling_price'     => 'required|numeric|min:0',
-            'inventory_unit'    => 'required|string|in:kg,paau,bottle,cartoon,boxes',
+            'inventory_unit'    => 'required|string|in:pcs,kg,paau,bottle,cartoon,boxes',
             'initial_stock'     => 'required|numeric|min:0',
-            'alert_stock_level' => 'required|numeric|min:0', //  Changed to numeric here too!
+            'alert_stock_level' => 'required|numeric|min:0',
         ]);
 
         $product->update([

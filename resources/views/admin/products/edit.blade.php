@@ -53,17 +53,17 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="space-y-1">
-                    <label class="block text-[10px] font-bold text-slate-500 uppercase">Inventory Unit *</label>
-                    <select name="inventory_unit" class="w-full p-2 border rounded text-sm bg-white focus:ring-1 focus:ring-blue-500 outline-none" required>
-                        <option value="">-- Select Unit --</option>
-                        @foreach(['kg' => 'KG', 'paau' => 'Paau', 'bottle' => 'Bottle', 'cartoon' => 'Cartoon', 'boxes' => 'Boxes'] as $value => $label)
-                            <option value="{{ $value }}" {{ old('inventory_unit', $product->inventory_unit) == $value ? 'selected' : '' }}>
-                                {{ $label }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
+               <div class="space-y-1">
+    <label class="block text-[10px] font-bold text-slate-500 uppercase">Inventory Unit *</label>
+    <select name="inventory_unit" class="w-full p-2 border rounded text-sm bg-white focus:ring-1 focus:ring-blue-500 outline-none" required>
+        <option value="">-- Select Unit --</option>
+        @foreach(['pcs' => 'Pcs / Pieces', 'kg' => 'KG', 'paau' => 'Paau', 'bottle' => 'Bottle', 'cartoon' => 'Cartoon', 'boxes' => 'Boxes'] as $value => $label)
+            <option value="{{ $value }}" {{ old('inventory_unit', $product->inventory_unit ?? '') == $value ? 'selected' : '' }}>
+                {{ $label }}
+            </option>
+        @endforeach
+    </select>
+</div>
 
                 <!-- Row 3: Specs -->
                 <div class="space-y-1">
