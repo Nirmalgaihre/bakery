@@ -15,11 +15,20 @@ use App\Http\Controllers\Admin\{
     PurchaseDashboardController, SupplierController, ActivityLogController, TrashController
 };
 
+// ---------------------------------------------------------------------------
 // 1. Root Gateway
-Route::get('/', fn() => Auth::check() ? redirect()->route('admin.dashboard') : redirect()->route('login'));
-Route::get('/invoice/share/{token}', [InvoiceController::class, 'showWebInvoice'])->name('invoice.public_share');
+// ---------------------------------------------------------------------------
+Route::get('/', fn() => Auth::check()
+    ? redirect()->route('admin.dashboard')
+    : redirect()->route('login')
+);
 
+Route::get('/invoice/share/{token}', [InvoiceController::class, 'showWebInvoice'])
+    ->name('invoice.public_share');
+
+// ---------------------------------------------------------------------------
 // 2. Authentication Suite (Guest only)
+// ---------------------------------------------------------------------------
 Route::middleware(['web', 'guest'])->group(function () {
     Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [LoginController::class, 'login']);
@@ -31,28 +40,22 @@ Route::middleware(['web', 'guest'])->group(function () {
     Route::post('/password/update', [LoginController::class, 'resetPassword'])->name('password.update');
 });
 
-// Check for auth.php file
+// Optional additional auth routes
 if (file_exists(__DIR__.'/auth.php')) {
     require __DIR__.'/auth.php';
 }
 
+// ---------------------------------------------------------------------------
 // 3. SECURE ADMIN MATRIX (Auth & verified users only)
-Route::middleware(['web', 'auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
+// ---------------------------------------------------------------------------
+Route::middleware(['web', 'auth', 'verified'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
 
-    // =====================================================================
-    // ADMIN-ONLY ZONE
-    // Strictly restricted to Administrators. Accountants and other staff
-    // are blocked from every route in this block.
-    //   - Dashboard (Inventory / Sales / Purchase dashboards)
-    //   - Cheque Management
-    //   - Backup & Restore
-    //   - Trash Bin (Recycler)
-    //   - User Control (Staff & Role management)
-    //
-    // NOTE: Dashboard + Cheques were moved here from the shared
-    // admin+accountant block below — accountants no longer have route-level
-    // access to these, matching the sidebar/layout changes.
-    // =====================================================================
+    // -----------------------------------------------------------------------
+    // ADMIN‑ONLY ZONE (admin role only)
+    // -----------------------------------------------------------------------
     Route::middleware(['role:admin'])->group(function () {
 
         // Dashboards
@@ -81,7 +84,7 @@ Route::middleware(['web', 'auth', 'verified'])->prefix('admin')->name('admin.')-
             Route::get('/restore/{filename}', [BackupController::class, 'restore'])->name('restore');
         });
 
-        // User Control: Staff Management
+        // Staff Management (admin only)
         Route::get('staff/create', [StaffController::class, 'create'])->name('staff.create');
         Route::post('staff', [StaffController::class, 'store'])->name('staff.store');
         Route::get('staff/{staff}/edit', [StaffController::class, 'edit'])->name('staff.edit');
@@ -90,7 +93,7 @@ Route::middleware(['web', 'auth', 'verified'])->prefix('admin')->name('admin.')-
         Route::get('staff', [StaffController::class, 'index'])->name('staff.index');
         Route::get('staff/{staff}', [StaffController::class, 'show'])->name('staff.show');
 
-        // User Control: Role & Permission Management
+        // Role & Permission Management (admin only)
         Route::get('roles/create', [RoleController::class, 'create'])->name('roles.create');
         Route::post('roles', [RoleController::class, 'store'])->name('roles.store');
         Route::get('roles/{role}/edit', [RoleController::class, 'edit'])->name('roles.edit');
@@ -100,36 +103,26 @@ Route::middleware(['web', 'auth', 'verified'])->prefix('admin')->name('admin.')-
         Route::get('roles/{role}', [RoleController::class, 'show'])->name('roles.show');
     });
 
-    // =====================================================================
-    // ADMIN + ACCOUNTANT ZONE
-    // Full authority (create, edit, view, manage) over the core
-    // operational & financial pipeline: Categories, Suppliers, Products,
-    // Customers, Sales & Invoicing, Inventory, Returns/Wastage, Reports.
-    //
-    // Dashboard and Cheque Management were REMOVED from this block — they
-    // now live exclusively in the admin-only zone above.
-    //
-    // NOTE ON ORDERING:
-    // Literal segments like "products/create" are registered before the
-    // wildcard "products/{product}" route — otherwise the wildcard would
-    // swallow "create" as if it were the {product} parameter.
-    // =====================================================================
+    // -----------------------------------------------------------------------
+    // ADMIN + ACCOUNTANT ZONE (full CRUD for core operational data)
+    // -----------------------------------------------------------------------
     Route::middleware(['role:admin|accountant'])->group(function () {
 
+        // Logout (shared)
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
-        // ---------------------------------------------------------------
-        // Step 1: Category Management (full CRUD)
-        // ---------------------------------------------------------------
+        // -------------------------------------------------------------------
+        // CATEGORY MANAGEMENT
+        // -------------------------------------------------------------------
         Route::post('categories', [SectorCategoryController::class, 'store'])->name('categories.store');
         Route::get('categories/{category}/edit', [SectorCategoryController::class, 'edit'])->name('categories.edit');
         Route::put('categories/{category}', [SectorCategoryController::class, 'update'])->name('categories.update');
         Route::delete('categories/{category}', [SectorCategoryController::class, 'destroy'])->name('categories.destroy');
         Route::get('categories', [SectorCategoryController::class, 'index'])->name('categories.index');
 
-        // ---------------------------------------------------------------
-        // Step 2: Supplier Management (full CRUD)
-        // ---------------------------------------------------------------
+        // -------------------------------------------------------------------
+        // SUPPLIER MANAGEMENT
+        // -------------------------------------------------------------------
         Route::prefix('suppliers')->name('suppliers.')->group(function () {
             Route::get('/create', [SupplierController::class, 'create'])->name('create');
             Route::post('/', [SupplierController::class, 'store'])->name('store');
@@ -140,9 +133,9 @@ Route::middleware(['web', 'auth', 'verified'])->prefix('admin')->name('admin.')-
             Route::get('/{supplier}', [SupplierController::class, 'show'])->name('show');
         });
 
-        // ---------------------------------------------------------------
-        // Step 3: Product Management (full CRUD + import/export)
-        // ---------------------------------------------------------------
+        // -------------------------------------------------------------------
+        // PRODUCT MANAGEMENT (including import / export)
+        // -------------------------------------------------------------------
         Route::get('products/create', [AdminProductController::class, 'create'])->name('products.create');
         Route::post('products', [AdminProductController::class, 'store'])->name('products.store');
         Route::get('products/{product}/edit', [AdminProductController::class, 'edit'])->name('products.edit');
@@ -153,34 +146,41 @@ Route::middleware(['web', 'auth', 'verified'])->prefix('admin')->name('admin.')-
         Route::post('products/import', [AdminProductController::class, 'import'])->name('products.import');
         Route::get('products/import/template', [AdminProductController::class, 'importTemplate'])->name('products.import.template');
         Route::get('products', [AdminProductController::class, 'index'])->name('products.index');
-        Route::get('customers/{customer}/purchased-products', [CustomerController::class, 'purchasedProducts'])->name('customers.purchased-products');
         Route::get('products/{product}', [AdminProductController::class, 'show'])->name('products.show');
 
-        // ---------------------------------------------------------------
-        // Step 4: Customer Management (full CRUD)
-        // ---------------------------------------------------------------
+        // Customer‑purchased products view
+        Route::get('customers/{customer}/purchased-products', [CustomerController::class, 'purchasedProducts'])
+            ->name('customers.purchased-products');
+
+        // -------------------------------------------------------------------
+        // CUSTOMER MANAGEMENT
+        // -------------------------------------------------------------------
         Route::get('customers/create', [CustomerController::class, 'create'])->name('customers.create');
         Route::post('customers', [CustomerController::class, 'store'])->name('customers.store');
         Route::get('customers/manage', [CustomerController::class, 'manage'])->name('customers.manage');
         Route::get('customers/{customer}/edit', [CustomerController::class, 'edit'])->name('customers.edit');
         Route::put('customers/{customer}', [CustomerController::class, 'update'])->name('customers.update');
         Route::delete('customers/{customer}', [CustomerController::class, 'destroy'])->name('customers.destroy');
-        Route::get('customers/{customer}/monthly-summary', [CustomerController::class, 'monthlySummary'])->name('customers.monthly-summary');
-        Route::get('customers/{customer}/month/{month}', [CustomerController::class, 'monthInvoices'])->name('customers.month-invoices');
+        Route::get('customers/{customer}/monthly-summary', [CustomerController::class, 'monthlySummary'])
+            ->name('customers.monthly-summary');
+        Route::get('customers/{customer}/month/{month}', [CustomerController::class, 'monthInvoices'])
+            ->name('customers.month-invoices');
         Route::get('customers', [CustomerController::class, 'index'])->name('customers.index');
         Route::get('customers/{customer}', [CustomerController::class, 'show'])->name('customers.show');
 
-        // ---------------------------------------------------------------
-        // Step 5: Sales & Invoice Processing (full CRUD)
-        // ---------------------------------------------------------------
+        // -------------------------------------------------------------------
+        // SALES & INVOICE PROCESSING
+        // -------------------------------------------------------------------
         Route::prefix('invoices')->name('invoices.')->group(function () {
             Route::get('/create', [InvoiceController::class, 'create'])->name('create');
             Route::post('/store', [InvoiceController::class, 'store'])->name('store');
             Route::get('/{invoice}/edit', [InvoiceController::class, 'edit'])->name('edit');
             Route::put('/{invoice}', [InvoiceController::class, 'update'])->name('update');
             Route::delete('/{invoice}', [InvoiceController::class, 'destroy'])->name('destroy');
-            Route::post('/generate-link/{invoice}', [InvoiceController::class, 'generateShareLink'])->name('generate_link');
-            Route::get('/generate-image/{id}', [InvoiceController::class, 'generateShareableImage'])->name('generate_image');
+            Route::post('/generate-link/{invoice}', [InvoiceController::class, 'generateShareLink'])
+                ->name('generate_link');
+            Route::get('/generate-image/{id}', [InvoiceController::class, 'generateShareableImage'])
+                ->name('generate_image');
             Route::get('/', [InvoiceController::class, 'index'])->name('index');
             Route::get('/print/{invoice}', [InvoiceController::class, 'printInvoicePDF'])->name('print');
             Route::get('/view/{invoice}', [InvoiceController::class, 'showWebInvoice'])->name('show_web');
@@ -194,22 +194,29 @@ Route::middleware(['web', 'auth', 'verified'])->prefix('admin')->name('admin.')-
             Route::post('/{id}/update-payment', [SalesController::class, 'updatePayment'])->name('update-payment');
             Route::get('/manage', [SalesController::class, 'manage'])->name('manage');
             Route::get('/analysis', [SalesController::class, 'itemAnalysis'])->name('item-analysis');
-            Route::get('/ledger-by-phone/{phone}', [CustomerLedgerController::class, 'showByPhone'])->name('customer-ledger-by-phone');
-            Route::get('/ledger/{customerId}', [CustomerLedgerController::class, 'showCustomerLedger'])->name('customer-ledger');
-            Route::get('/customer/{id}', [CustomerLedgerController::class, 'showCustomerLedger'])->name('customer-ledger-old');
-            Route::get('/product-traceability', [InventoryMovementController::class, 'productTraceability'])->name('product_traceability');
+            Route::get('/ledger-by-phone/{phone}', [CustomerLedgerController::class, 'showByPhone'])
+                ->name('customer-ledger-by-phone');
+            Route::get('/ledger/{customerId}', [CustomerLedgerController::class, 'showCustomerLedger'])
+                ->name('customer-ledger');
+            Route::get('/customer/{id}', [CustomerLedgerController::class, 'showCustomerLedger'])
+                ->name('customer-ledger-old');
+            Route::get('/product-traceability', [InventoryMovementController::class, 'productTraceability'])
+                ->name('product_traceability');
             Route::get('/logs', [InventoryMovementController::class, 'salesIndex'])->name('index');
-            Route::get('/invoices/print/{invoice}', [InvoiceController::class, 'printInvoicePDF'])->name('invoices.print');
+            Route::get('/invoices/print/{invoice}', [InvoiceController::class, 'printInvoicePDF'])
+                ->name('invoices.print');
             Route::get('/all', [SalesController::class, 'index'])->name('all');
         });
 
-        // Customer Ledger (manage payments + view)
-        Route::post('/customer-ledger/{id}/payment', [CustomerLedgerController::class, 'storePayment'])->name('payments.store');
-        Route::get('/customer-ledger/{id}', [CustomerLedgerController::class, 'show'])->name('ledger.show');
+        // Customer Ledger Payments
+        Route::post('/customer-ledger/{id}/payment', [CustomerLedgerController::class, 'storePayment'])
+            ->name('payments.store');
+        Route::get('/customer-ledger/{id}', [CustomerLedgerController::class, 'show'])
+            ->name('ledger.show');
 
-        // ---------------------------------------------------------------
-        // Step 6: Inventory Tracking (full CRUD)
-        // ---------------------------------------------------------------
+        // -------------------------------------------------------------------
+        // INVENTORY TRACKING
+        // -------------------------------------------------------------------
         Route::prefix('inventory')->name('inventory.')->group(function () {
             Route::get('/add', [InventoryMovementController::class, 'createAddStock'])->name('add');
             Route::get('/add-stock/{product}', [StockController::class, 'create'])->name('create');
@@ -219,10 +226,13 @@ Route::middleware(['web', 'auth', 'verified'])->prefix('admin')->name('admin.')-
             Route::get('/', [SalesController::class, 'showInventoryProducts'])->name('index');
             Route::get('/position', [InventoryMovementController::class, 'stockPosition'])->name('position');
             Route::get('/low-stock', [InventoryMovementController::class, 'manageLowStock'])->name('manageLowStock');
-            Route::get('/low-stock-manager', [InventoryMovementController::class, 'manageLowStock'])->name('low_stock_manager');
+            Route::get('/low-stock-manager', [InventoryMovementController::class, 'manageLowStock'])
+                ->name('low_stock_manager');
         });
 
-        // Purchases Management (full CRUD) — receiving stock from suppliers
+        // -------------------------------------------------------------------
+        // PURCHASES MANAGEMENT (stock receipt)
+        // -------------------------------------------------------------------
         Route::prefix('purchases')->name('purchases.')->group(function () {
             Route::get('/create', [PurchaseDashboardController::class, 'create'])->name('create');
             Route::post('/store', [InventoryMovementController::class, 'storeAddStock'])->name('store');
@@ -232,49 +242,55 @@ Route::middleware(['web', 'auth', 'verified'])->prefix('admin')->name('admin.')-
             Route::get('/{purchase}', [PurchaseDashboardController::class, 'show'])->name('show');
         });
 
-        // Transactions
+        // -------------------------------------------------------------------
+        // TRANSACTIONS
+        // -------------------------------------------------------------------
         Route::prefix('transactions')->name('transactions.')->group(function () {
             Route::get('/', [TransactionController::class, 'index'])->name('index');
             Route::post('/', [TransactionController::class, 'store'])->name('store');
-            Route::get('/report/movement/{productId}', [TransactionController::class, 'showReport'])->name('report.movement');
+            Route::get('/report/movement/{productId}', [TransactionController::class, 'showReport'])
+                ->name('report.movement');
         });
 
-        // ---------------------------------------------------------------
-        // Step 7: Returns Management (Customer & Supplier returns / wastage)
-        // ---------------------------------------------------------------
+        // -------------------------------------------------------------------
+        // RETURNS / WASTAGE MANAGEMENT
+        // -------------------------------------------------------------------
         Route::get('returns-wastage/create', [WastageController::class, 'create'])->name('wastage.create');
         Route::post('returns-wastage', [WastageController::class, 'store'])->name('wastage.store');
         Route::get('returns-wastage', [WastageController::class, 'index'])->name('wastage.index');
         Route::get('returns-wastage/{id}', [WastageController::class, 'show'])->name('wastage.show');
 
-        // ---------------------------------------------------------------
-        // Step 8: Analytical Reports
-        // ---------------------------------------------------------------
+        // -------------------------------------------------------------------
+        // ANALYTICAL REPORTS
+        // -------------------------------------------------------------------
         Route::prefix('reports')->name('reports.')->group(function () {
             Route::get('/', [ReportController::class, 'index'])->name('index');
             Route::get('/cash-flow', [ReportController::class, 'cashFlowReport'])->name('cash-flow');
-            Route::get('/stock-ageing', [InventoryMovementController::class, 'stockAgeing'])->name('stock_ageing');
-            Route::get('/monthly-movement', [InventoryMovementController::class, 'monthlyMovementReport'])->name('monthly-movement');
-            Route::get('/stock-movement', [InventoryMovementController::class, 'productTraceability'])->name('stock-movement');
+            Route::get('/stock-ageing', [InventoryMovementController::class, 'stockAgeing'])
+                ->name('stock_ageing');
+            Route::get('/monthly-movement', [InventoryMovementController::class, 'monthlyMovementReport'])
+                ->name('monthly-movement');
+            Route::get('/stock-movement', [InventoryMovementController::class, 'productTraceability'])
+                ->name('stock-movement');
         });
 
-        // ---------------------------------------------------------------
-        // Shared utility / non-operational routes (both roles need these)
-        // ---------------------------------------------------------------
+        // -------------------------------------------------------------------
+        // SHARED UTILITIES (both roles)
+        // -------------------------------------------------------------------
 
         // Release notes
         Route::prefix('release-notes')->name('release-notes.')->group(function () {
-            Route::get('/', function () {
-                return view('admin.release-notes');
-            })->name('index');
+            Route::get('/', fn() => view('admin.release-notes'))->name('index');
         });
 
-        // User Profile (each user manages their own profile)
+        // User Profile
         Route::prefix('profile')->name('profile.')->group(function () {
             Route::get('/', [App\Http\Controllers\ProfileController::class, 'edit'])->name('edit');
             Route::patch('/update', [App\Http\Controllers\ProfileController::class, 'update'])->name('update');
-            Route::get('/change-password', [App\Http\Controllers\ProfileController::class, 'passwordEdit'])->name('change');
-            Route::patch('/update-password', [App\Http\Controllers\ProfileController::class, 'passwordUpdate'])->name('update-password');
+            Route::get('/change-password', [App\Http\Controllers\ProfileController::class, 'passwordEdit'])
+                ->name('change');
+            Route::patch('/update-password', [App\Http\Controllers\ProfileController::class, 'passwordUpdate'])
+                ->name('update-password');
         });
 
         // User Guide
