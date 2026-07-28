@@ -4,6 +4,7 @@ namespace App\Imports;
 
 use App\Models\Product;
 use App\Models\SectorCategory;
+use Illuminate\Support\Str;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithValidation;
@@ -22,13 +23,12 @@ class ProductsImport implements ToModel, WithHeadingRow, WithValidation, SkipsOn
     public int $createdCount = 0;
     public int $updatedCount = 0;
 
-    // Cache categories in memory for this batch run to avoid redundant SELECT queries
-    private array $categoryCache = [];
+    public array $customIssues = [];
 
-    /**
-     * @param array $row
-     * @return \Illuminate\Database\Eloquent\Model|null
-     */
+    private array $categoryCache = [];
+    private array $usedItemCodes = [];
+    private array $seenNames = [];
+
     public function model(array $row)
     {
         if (empty($row['name'])) {
@@ -36,60 +36,80 @@ class ProductsImport implements ToModel, WithHeadingRow, WithValidation, SkipsOn
         }
 
         $productName = trim($row['name']);
+        $nameKey = mb_strtolower($productName);
 
-        // 1. Find existing product or start a new one
-        $product = Product::firstOrNew(['name' => $productName]);
-        $existed = $product->exists;
-
-        // 2. Optimized Category Logic using local cache memory
-        $categoryName = isset($row['category']) ? trim($row['category']) : 'Uncategorized';
-
-        if (!isset($this->categoryCache[$categoryName])) {
-            $category = SectorCategory::firstOrCreate(['name' => $categoryName]);
-            $this->categoryCache[$categoryName] = $category->id;
+        if (isset($this->seenNames[$nameKey])) {
+            $this->customIssues[] = "Duplicate product \"{$productName}\" appears more than once in this file — only the first occurrence was used.";
+            return null;
         }
-        $categoryId = $this->categoryCache[$categoryName];
+        $this->seenNames[$nameKey] = true;
 
-        // 3. item_code is intentionally left untouched by import.
-        // There is no "item_code" column in the import sheet, so we never set or
-        // auto-generate one here. New products are created with item_code = null
-        // and must have a code assigned manually from the admin edit screen.
-        // Existing products keep whatever item_code they already had.
+        $product = Product::where('name', $productName)->first();
+        $existed = (bool) $product;
 
-        // 4. Map the data structure
-        $product->category_id        = $categoryId;
+        if (!$existed) {
+            $product = new Product(['name' => $productName]);
+        }
+
+        // category_id can be a string PK (e.g. "cat-baking-agents-additives")
+        // or a numeric PK depending on your SectorCategory model — support both.
+        $categoryId = null;
+
+        if (!empty($row['category_id'])) {
+            $categoryId = $row['category_id'];
+        } elseif (!empty($row['category'])) {
+            $categoryName = trim($row['category']);
+            if (!isset($this->categoryCache[$categoryName])) {
+                $category = SectorCategory::firstOrCreate(['name' => $categoryName]);
+                $this->categoryCache[$categoryName] = $category->id;
+            }
+            $categoryId = $this->categoryCache[$categoryName];
+        }
+
+        if ($categoryId === null && !$existed) {
+            $this->customIssues[] = "Row for \"{$productName}\": no valid category_id/category given — skipped.";
+            return null;
+        }
+
+        if (!$existed) {
+            $product->item_code = $this->generateItemCode($productName, $categoryId);
+        }
+
+        $product->category_id        = $categoryId ?? $product->category_id;
         $product->purchase_cost      = $row['purchase_cost'] ?? $product->purchase_cost ?? 0;
         $product->selling_price      = $row['selling_price'] ?? $product->selling_price ?? 0;
         $product->inventory_unit     = $this->sanitizeUnit($row['inventory_unit'] ?? $product->inventory_unit ?? 'kg');
         $product->initial_stock      = $row['initial_stock'] ?? $product->initial_stock ?? 0;
-        // For new products, if 'stock' or 'current_stock' is not provided,
-        // default 'stock' to 'initial_stock' to match manual creation behavior.
+
         if (!$existed && !isset($row['current_stock']) && !isset($row['stock'])) {
             $product->stock = $product->initial_stock;
         } else {
             $product->stock = $row['current_stock'] ?? $row['stock'] ?? $product->stock ?? 0;
         }
+
         $product->alert_stock_level  = $row['alert_stock_level'] ?? $product->alert_stock_level ?? 0;
         $product->alert_sent         = $product->alert_sent ?? false;
 
-        $existed ? $this->updatedCount++ : $this->createdCount++;
+        if ($existed) {
+            try {
+                $product->save();
+                $this->updatedCount++;
+            } catch (\Illuminate\Database\QueryException $e) {
+                $this->customIssues[] = $this->friendlyDbError($productName, $e);
+            }
+            return null;
+        }
 
-        // Note: Do NOT manually call $product->save() when using ToModel with Batch Inserts.
-        // Returning the model lets Maatwebsite handle database batching optimizations automatically.
+        $this->createdCount++;
+
         return $product;
     }
 
-    /**
-     * Set how many rows are safely sent to the database in one single query statement
-     */
     public function batchSize(): int
     {
         return 250;
     }
 
-    /**
-     * Set how many rows are read into server memory at any given time
-     */
     public function chunkSize(): int
     {
         return 250;
@@ -98,14 +118,63 @@ class ProductsImport implements ToModel, WithHeadingRow, WithValidation, SkipsOn
     private function sanitizeUnit(string $unit): string
     {
         $unit = strtolower(trim($unit));
-        $allowed = ['kg', 'paau', 'bottle', 'cartoon', 'boxes'];
+        $allowed = ['pcs', 'kg', 'paau', 'bottle', 'cartoon', 'boxes'];
         return in_array($unit, $allowed) ? $unit : 'kg';
+    }
+
+    private function generateItemCode(string $name, string|int|null $categoryId): string
+    {
+        $prefix = $this->buildPrefix($name, $categoryId);
+
+        do {
+            $code = $prefix . '-' . strtoupper(Str::random(6));
+        } while (
+            isset($this->usedItemCodes[$code])
+            || Product::where('item_code', $code)->exists()
+        );
+
+        $this->usedItemCodes[$code] = true;
+
+        return $code;
+    }
+
+    private function buildPrefix(string $name, string|int|null $categoryId): string
+    {
+        if ($categoryId) {
+            $categoryName = array_search($categoryId, $this->categoryCache, true);
+            if ($categoryName) {
+                $prefix = strtoupper(Str::slug(Str::limit($categoryName, 12, ''), ''));
+                if ($prefix !== '') {
+                    return $prefix;
+                }
+            }
+        }
+
+        $prefix = strtoupper(Str::slug(Str::limit($name, 12, ''), ''));
+
+        return $prefix !== '' ? $prefix : 'PRD';
+    }
+
+    private function friendlyDbError(string $productName, \Illuminate\Database\QueryException $e): string
+    {
+        $code = $e->errorInfo[1] ?? null;
+
+        if ($code == 1062) {
+            return "\"{$productName}\": a duplicate entry already exists and could not be saved.";
+        }
+
+        if ($code == 1452) {
+            return "\"{$productName}\": references a category that doesn't exist.";
+        }
+
+        return "\"{$productName}\": could not be saved due to a database error.";
     }
 
     public function rules(): array
     {
         return [
             'name'              => 'required|string|max:255',
+            'category_id'       => 'nullable|string|exists:sector_categories,id',
             'purchase_cost'     => 'nullable|numeric|min:0',
             'selling_price'     => 'nullable|numeric|min:0',
             'initial_stock'     => 'nullable|numeric|min:0',

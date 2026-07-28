@@ -13,10 +13,22 @@ class ProductController extends Controller
      * Display a listing of the registered products.
      */
     public function index()
-    {
-        $products = Product::latest()->paginate(15);
-        return view('admin.products.index', compact('products'));
-    }
+{
+    // 1. Fetch 100 products per page for the table grid
+    $products = Product::paginate(100);
+
+    // 2. Metrics across the ENTIRE database (Not just current page)
+    $totalProductsCount = Product::count();
+    $lowStockCount      = Product::whereRaw('CAST(stock AS SIGNED) <= CAST(alert_stock_level AS SIGNED)')->count();
+    $totalStockUnits    = Product::sum('stock');
+
+    return view('admin.products.index', compact(
+        'products',
+        'totalProductsCount',
+        'lowStockCount',
+        'totalStockUnits'
+    ));
+}
 
     /**
      * Show the form engine for creating a new warehouse product item file.

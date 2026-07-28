@@ -15,6 +15,7 @@ class Purchase extends Model
         'total_amount', 
         'supplier_name', 
         'purchase_date', 
+        'nepali_date',
         'notes'
     ];
 

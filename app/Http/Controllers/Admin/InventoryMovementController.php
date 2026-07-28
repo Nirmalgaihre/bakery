@@ -174,12 +174,12 @@ class InventoryMovementController extends Controller
         try {
             DB::transaction(function () use ($validated) {
                 $invoice = Invoice::create([
-                    'invoice_no' => 'INV-' . strtoupper(uniqid()),
+                    'invoice_no'   => 'INV-' . strtoupper(uniqid()),
                     'invoice_date' => date('Y-m-d'),
-                    'customer_id' => $validated['customer_id'],
-                    'supplier_id' => $validated['supplier_id'] ?? null,
+                    'customer_id'  => $validated['customer_id'],
+                    'supplier_id'  => $validated['supplier_id'] ?? null,
                     'patient_name' => Customer::find($validated['customer_id'])->name ?? 'Walk-in',
-                    'grand_total' => 0, 
+                    'grand_total'  => 0, 
                 ]);
 
                 $grandTotal = 0;
@@ -209,10 +209,10 @@ class InventoryMovementController extends Controller
                     ]);
 
                     InventoryAdjustment::create([
-                        'product_id' => $product->id,
-                        'quantity'   => $item['qty'],
-                        'type'       => 'sell',
-                        'unit_cost'  => $product->selling_price,
+                        'product_id'     => $product->id,
+                        'quantity'       => $item['qty'],
+                        'type'           => 'sell',
+                        'unit_cost'      => $product->selling_price,
                         'reference_note' => 'POS Invoice: #' . $invoice->invoice_no,
                     ]);
                 }
@@ -227,9 +227,10 @@ class InventoryMovementController extends Controller
 
     public function storeAddStock(Request $request)
     {
+        // 1. Made 'supplier_id' nullable instead of required
         $request->validate([
             'product_id'     => 'required|exists:products,id',
-            'supplier_id'    => 'required|exists:suppliers,id',
+            'supplier_id'    => 'nullable|exists:suppliers,id',
             'quantity'       => 'required|numeric|min:0.01',
             'purchase_cost'  => 'required|numeric|min:0',
             'reference_note' => 'nullable|string'
@@ -240,13 +241,19 @@ class InventoryMovementController extends Controller
 
             $product->increment('initial_stock', $request->quantity);
 
+            // 2. Fetch supplier name safely or default to 'N/A' if null
+            $supplierName = 'N/A';
+            if ($request->supplier_id) {
+                $supplierName = Supplier::find($request->supplier_id)->name ?? 'Unknown Supplier';
+            }
+
             \App\Models\Purchase::create([
                 'item_name'      => $product->name,
                 'quantity'       => $request->quantity,
                 'price_per_unit' => $request->purchase_cost,
                 'total_amount'   => ($request->purchase_cost * $request->quantity),
-                'supplier_id'    => $request->supplier_id,
-                'supplier_name'  => Supplier::find($request->supplier_id)->name ?? 'Unknown',
+                'supplier_id'    => $request->supplier_id ?? null,
+                'supplier_name'  => $supplierName,
                 'purchase_date'  => now(),
                 'notes'          => $request->reference_note ?? 'Manual Add Stock',
                 'unit'           => $product->unit ?? 'pcs', 
@@ -490,15 +497,12 @@ class InventoryMovementController extends Controller
         $outwards = collect();
 
         if ($supplierId) {
-            // 1. INWARD: Products bought from this supplier (taken directly from products table)
             $inwards = Product::where('supplier_id', $supplierId)->get();
             
-            // 2. OUTWARD: Sales transactions of this supplier's products to buyers
-            // Links invoice_items to invoices to fetch customer details and grand totals
             $outwards = InvoiceItem::whereIn('product_id', function($query) use ($supplierId) {
                     $query->select('id')->from('products')->where('supplier_id', $supplierId);
                 })
-                ->with(['invoice.customer']) // Eager load the invoice and customer info
+                ->with(['invoice.customer'])
                 ->get();
         }
 
@@ -519,38 +523,36 @@ class InventoryMovementController extends Controller
         return view('admin.products.monthly_movement', compact('movements', 'year'));
     }
 
-public function productTraceability(Request $request)
-{
-    $allSuppliers = Supplier::orderBy('name', 'asc')->get();
-    $activeSupplierId = $request->input('supplier_id');
-    
-    $inwards = collect();
-    $outwards = collect();
-    $activeSupplier = null;
-    
-    if ($activeSupplierId) {
-        $activeSupplier = Supplier::find($activeSupplierId);
+    public function productTraceability(Request $request)
+    {
+        $allSuppliers = Supplier::orderBy('name', 'asc')->get();
+        $activeSupplierId = $request->input('supplier_id');
         
-        if ($activeSupplier) {
-            // 1. INWARD: Products from the 'products' table belonging to this supplier
-            $inwards = Product::where('supplier_id', $activeSupplierId)->get();
+        $inwards = collect();
+        $outwards = collect();
+        $activeSupplier = null;
+        
+        if ($activeSupplierId) {
+            $activeSupplier = Supplier::find($activeSupplierId);
+            
+            if ($activeSupplier) {
+                $inwards = Product::where('supplier_id', $activeSupplierId)->get();
 
-            // 2. OUTWARD: Sales items belonging to this supplier's products
-            $outwards = InvoiceItem::whereIn('product_id', function($query) use ($activeSupplierId) {
-                    $query->select('id')->from('products')->where('supplier_id', $activeSupplierId);
-                })
-                ->with(['invoice']) // Eager loads invoice to get patient_name, patient_city, etc.
-                ->get();
+                $outwards = InvoiceItem::whereIn('product_id', function($query) use ($activeSupplierId) {
+                        $query->select('id')->from('products')->where('supplier_id', $activeSupplierId);
+                    })
+                    ->with(['invoice'])
+                    ->get();
+            }
         }
-    }
 
-    return view('admin.products.product_traceability', compact(
-        'allSuppliers', 
-        'activeSupplier', 
-        'inwards', 
-        'outwards'
-    ));
-}
+        return view('admin.products.product_traceability', compact(
+            'allSuppliers', 
+            'activeSupplier', 
+            'inwards', 
+            'outwards'
+        ));
+    }
 
     public function getProductTraceability($productId)
     {

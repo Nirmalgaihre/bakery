@@ -6,7 +6,8 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Exports\ProductsExport;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\AiAssistantController;
-use App\Http\Controllers\Admin\TransactionController; // Ensure this matches the file location
+use App\Http\Controllers\Admin\TransactionController;
+use App\Http\Controllers\Admin\PurchaseImportExportController;
 use App\Http\Controllers\Admin\{
     DashboardController, CustomerController, ProductController as AdminProductController,
     SectorCategoryController, StockController, InventoryMovementController,
@@ -133,13 +134,17 @@ Route::middleware(['web', 'auth', 'verified'])
             Route::get('/{supplier}', [SupplierController::class, 'show'])->name('show');
         });
 
-        // -------------------------------------------------------------------
+// -------------------------------------------------------------------
         // PRODUCT MANAGEMENT (including import / export)
         // -------------------------------------------------------------------
         Route::get('products/create', [AdminProductController::class, 'create'])->name('products.create');
         Route::post('products', [AdminProductController::class, 'store'])->name('products.store');
         Route::get('products/{product}/edit', [AdminProductController::class, 'edit'])->name('products.edit');
         Route::put('products/{product}', [AdminProductController::class, 'update'])->name('products.update');
+
+        // ADD THIS ROUTE HERE (MUST BE ABOVE products/{product}):
+        Route::delete('products/bulk-destroy', [AdminProductController::class, 'bulkDestroy'])->name('products.bulk-destroy');
+
         Route::delete('products/{product}', [AdminProductController::class, 'destroy'])->name('products.destroy');
         Route::get('/products/export/{type}', [AdminProductController::class, 'export'])->name('products.export');
         Route::get('products/import', [AdminProductController::class, 'importForm'])->name('products.import.form');
@@ -147,7 +152,6 @@ Route::middleware(['web', 'auth', 'verified'])
         Route::get('products/import/template', [AdminProductController::class, 'importTemplate'])->name('products.import.template');
         Route::get('products', [AdminProductController::class, 'index'])->name('products.index');
         Route::get('products/{product}', [AdminProductController::class, 'show'])->name('products.show');
-
         // Customer‑purchased products view
         Route::get('customers/{customer}/purchased-products', [CustomerController::class, 'purchasedProducts'])
             ->name('customers.purchased-products');
@@ -230,12 +234,17 @@ Route::middleware(['web', 'auth', 'verified'])
                 ->name('low_stock_manager');
         });
 
-        // -------------------------------------------------------------------
-        // PURCHASES MANAGEMENT (stock receipt)
-        // -------------------------------------------------------------------
-        Route::prefix('purchases')->name('purchases.')->group(function () {
+Route::prefix('purchases')->name('purchases.')->group(function () {
             Route::get('/create', [PurchaseDashboardController::class, 'create'])->name('create');
             Route::post('/store', [InventoryMovementController::class, 'storeAddStock'])->name('store');
+            
+            // Purchase Import & Export Routes
+            Route::get('/export/{type}', [PurchaseImportExportController::class, 'export'])->name('export');
+            Route::get('/import', [PurchaseImportExportController::class, 'importForm'])->name('import.form');
+
+            // 👇 CHANGE THIS LINE RIGHT HERE:
+            Route::post('/import', [AdminProductController::class, 'importPurchases'])->name('import');
+
             Route::get('/edit/{purchase}', [PurchaseDashboardController::class, 'edit'])->name('edit');
             Route::post('/update/{purchase}', [PurchaseDashboardController::class, 'update'])->name('update');
             Route::delete('/destroy/{purchase}', [PurchaseDashboardController::class, 'destroy'])->name('destroy');

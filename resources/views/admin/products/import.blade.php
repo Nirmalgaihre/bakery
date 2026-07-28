@@ -2,7 +2,7 @@
 @section('title', 'Import Bakery Products')
 
 @section('content')
-<div class="max-w-4xl mx-auto py-8">
+<div class="max-w-5xl mx-auto py-8">
     <h1 class="text-2xl font-bold mb-6 text-slate-800">Import Bakery Inventory</h1>
 
     {{-- Success Feedback --}}
@@ -49,8 +49,8 @@
 
         {{-- Excel Visual Container --}}
         <div class="overflow-x-auto rounded-lg border border-slate-300 shadow-sm bg-white">
-            <table class="w-full text-sm border-collapse font-sans min-w-[650px]">
-                {{-- Excel Column Letter Headers (A, B, C, D...) --}}
+            <table class="w-full text-sm border-collapse font-sans min-w-[750px]">
+                {{-- Excel Column Letter Headers (A, B, C...) --}}
                 <thead>
                     <tr class="bg-slate-200 text-slate-500 font-mono text-xs text-center select-none border-b border-slate-300">
                         <th class="w-10 bg-slate-300 border-r border-slate-400 p-1 font-normal"></th>
@@ -60,70 +60,66 @@
                         <th class="p-1 border-r border-slate-300 font-normal">D</th>
                         <th class="p-1 border-r border-slate-300 font-normal">E</th>
                         <th class="p-1 border-r border-slate-300 font-normal">F</th>
+                        <th class="p-1 font-normal">G</th>
                     </tr>
                     
-                    {{-- Row 1: Header Names (Required) --}}
+                    {{-- Row 1: Header Names --}}
                     <tr class="bg-emerald-50 text-emerald-900 font-mono font-bold text-xs border-b border-slate-300">
                         <td class="bg-slate-200 text-slate-500 font-mono text-xs text-center border-r border-slate-400 select-none font-normal">1</td>
                         <td class="p-2 border-r border-slate-300">name</td>
-                        <td class="p-2 border-r border-slate-300">category</td>
+                        <td class="p-2 border-r border-slate-300">category_id</td>
                         <td class="p-2 border-r border-slate-300 text-right">purchase_cost</td>
                         <td class="p-2 border-r border-slate-300 text-right">selling_price</td>
                         <td class="p-2 border-r border-slate-300">inventory_unit</td>
-                        <td class="p-2 text-right">initial_stock</td>
+                        <td class="p-2 border-r border-slate-300 text-right">initial_stock</td>
+                        <td class="p-2 text-right">alert_stock_level</td>
                     </tr>
                 </thead>
 
-                {{-- Rows 2, 3 & 4: Bakery Sample Data Rows --}}
+                {{-- Sample Data Rows --}}
                 <tbody class="divide-y divide-slate-200 text-slate-700 font-sans text-xs">
                     <tr>
                         <td class="bg-slate-200 text-slate-500 font-mono text-xs text-center border-r border-slate-400 select-none">2</td>
                         <td class="p-2.5 border-r border-slate-200 font-medium text-slate-900">All-Purpose Flour (25kg Bag)</td>
-                        <td class="p-2.5 border-r border-slate-200">Raw Ingredients</td>
+                        <td class="p-2.5 border-r border-slate-200 font-mono">1</td>
                         <td class="p-2.5 border-r border-slate-200 text-right font-mono">18.50</td>
                         <td class="p-2.5 border-r border-slate-200 text-right font-mono">25.00</td>
                         <td class="p-2.5 border-r border-slate-200">kg</td>
-                        <td class="p-2.5 text-right font-mono">50</td>
+                        <td class="p-2.5 border-r border-slate-200 text-right font-mono">50</td>
+                        <td class="p-2.5 text-right font-mono">10</td>
                     </tr>
                     <tr class="bg-slate-50/50">
                         <td class="bg-slate-200 text-slate-500 font-mono text-xs text-center border-r border-slate-400 select-none">3</td>
                         <td class="p-2.5 border-r border-slate-200 font-medium text-slate-900">Unsalted French Butter</td>
-                        <td class="p-2.5 border-r border-slate-200">Dairy & Fats</td>
+                        <td class="p-2.5 border-r border-slate-200 font-mono">2</td>
                         <td class="p-2.5 border-r border-slate-200 text-right font-mono">4.20</td>
                         <td class="p-2.5 border-r border-slate-200 text-right font-mono">6.50</td>
                         <td class="p-2.5 border-r border-slate-200">lbs</td>
-                        <td class="p-2.5 text-right font-mono">30</td>
+                        <td class="p-2.5 border-r border-slate-200 text-right font-mono">30</td>
+                        <td class="p-2.5 text-right font-mono">5</td>
                     </tr>
                     <tr>
                         <td class="bg-slate-200 text-slate-500 font-mono text-xs text-center border-r border-slate-400 select-none">4</td>
                         <td class="p-2.5 border-r border-slate-200 font-medium text-slate-900">Chocolate Croissant</td>
-                        <td class="p-2.5 border-r border-slate-200">Pastries</td>
+                        <td class="p-2.5 border-r border-slate-200 font-mono">3</td>
                         <td class="p-2.5 border-r border-slate-200 text-right font-mono">1.10</td>
                         <td class="p-2.5 border-r border-slate-200 text-right font-mono">3.75</td>
                         <td class="p-2.5 border-r border-slate-200">pcs</td>
-                        <td class="p-2.5 text-right font-mono">120</td>
-                    </tr>
-                    <tr class="bg-slate-50/50">
-                        <td class="bg-slate-200 text-slate-500 font-mono text-xs text-center border-r border-slate-400 select-none">5</td>
-                        <td class="p-2.5 border-r border-slate-200 font-medium text-slate-900">Custom Cake Box (10x10)</td>
-                        <td class="p-2.5 border-r border-slate-200">Packaging</td>
-                        <td class="p-2.5 border-r border-slate-200 text-right font-mono">0.45</td>
-                        <td class="p-2.5 border-r border-slate-200 text-right font-mono">1.00</td>
-                        <td class="p-2.5 border-r border-slate-200">pack</td>
-                        <td class="p-2.5 text-right font-mono">200</td>
+                        <td class="p-2.5 border-r border-slate-200 text-right font-mono">120</td>
+                        <td class="p-2.5 text-right font-mono">20</td>
                     </tr>
                 </tbody>
             </table>
         </div>
         
         <p class="text-xs text-slate-500 mt-2">
-            <span class="font-bold text-slate-700">Note:</span> Do not change the order or spelling of the header names in Row 1.
+            <span class="font-bold text-slate-700">Note:</span> Ensure column headers in Row 1 match these names exactly. Your backend logic can automatically copy <code class="bg-slate-100 px-1 rounded">initial_stock</code> into <code class="bg-slate-100 px-1 rounded">stock</code> upon import.
         </p>
     </div>
 </div>
 
 <script>
-    // Simple script to prevent double submission
+    // Prevent double submission
     document.getElementById('importForm').addEventListener('submit', function() {
         const btn = document.getElementById('submitBtn');
         btn.disabled = true;

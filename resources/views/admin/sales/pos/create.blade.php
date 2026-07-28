@@ -173,6 +173,21 @@
                     Order Items
                 </label>
                 <div id="cart-scroll-box" class="divide-y divide-slate-100 border border-slate-100 rounded-md min-h-[110px] max-h-[260px] overflow-y-auto bg-slate-50/40">
+                    <table class="w-full text-xs text-left border-collapse" id="cart-table">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-500 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
+                                <th class="py-2 px-2">Product</th>
+                                <th class="py-2 px-1 text-center">Qty</th>
+                                <th class="py-2 px-1 text-center">Unit</th>
+                                <th class="py-2 px-1 text-right">Rate</th>
+                                <th class="py-2 px-1 text-right">Total</th>
+                                <th class="py-2 px-1 text-center"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 font-medium text-slate-700">
+                            {{-- Cart items will be rendered here by JS --}}
+                        </tbody>
+                    </table>
                     <div id="cart-empty-state" class="text-center py-9 text-slate-400">
                         <i class="fa-solid fa-cart-shopping text-2xl mb-1.5 text-slate-200 block"></i>
                         <p class="text-[11px] font-medium text-slate-500">No items yet</p>
@@ -217,7 +232,7 @@
             <div class="flex items-center justify-between p-2.5 border border-slate-200 rounded-md bg-slate-50/50 mt-3">
                 <span class="text-[10px] font-bold text-slate-700 uppercase">Include 13% VAT</span>
                 <label class="relative inline-flex items-center cursor-pointer select-none" for="vat-toggle">
-                    <input type="checkbox" id="vat-toggle" checked class="sr-only peer">
+                    <input type="checkbox" id="vat-toggle" class="sr-only peer">
                     <div class="w-9 h-5 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600">
                     </div>
                 </label>
@@ -360,6 +375,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const productGrid = document.getElementById('product-grid');
     const productEmptyFilter = document.getElementById('product-empty-filter');
     const filterPills = document.querySelectorAll('.category-filter-pill');
+    const cartTableBody = document.querySelector('#cart-table tbody'); // New ref for table body
     const cartScrollBox = document.getElementById('cart-scroll-box');
     const cartEmptyState = document.getElementById('cart-empty-state');
     const cartBadgeCount = document.getElementById('cart-badge-count');
@@ -501,7 +517,7 @@ document.addEventListener('DOMContentLoaded', function() {
             id: productId,
             name: row.dataset.name,
             selling_price: parseFloat(row.dataset.price),
-            initial_stock: parseFloat(row.dataset.initialStock),
+            initial_stock: parseFloat(row.dataset.initialStock), // This is the total stock in DB
             inventory_unit: row.dataset.unit,
             alert_stock_level: parseFloat(row.dataset.alertLevel),
         };
@@ -616,7 +632,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Cart rendering
     // ---------------------------------------------------------------
     function renderCart() {
-        cartScrollBox.querySelectorAll('.cart-item-row').forEach(r => r.remove());
+        cartTableBody.innerHTML = ''; // Clear existing table rows
 
         clearCartBtn.disabled = cart.length === 0;
 
@@ -630,20 +646,21 @@ document.addEventListener('DOMContentLoaded', function() {
             lblVat.textContent = 'NPR 0.00';
             lblGrandTotal.textContent = 'NPR 0.00';
             paidAmtInput.value = '0.00';
+            cartEmptyState.style.display = ''; // Show empty state
             updateProductStockDisplay();
             updateSubmitState();
             return;
         }
 
-        cartEmptyState.style.display = 'none';
+        cartEmptyState.style.display = 'none'; // Hide empty state
 
-        let totalQtyDisplay = 0;
+        let totalQtyDisplay = 0; // Counts distinct items
 
         cart.forEach((item, index) => {
             totalQtyDisplay += 1;
 
-            const row = document.createElement('div');
-            row.className = 'cart-item-row py-2.5 px-2.5 flex items-center justify-between gap-1 text-xs text-slate-700 bg-white';
+            const row = document.createElement('tr');
+            row.className = 'cart-item-row hover:bg-blue-50/30 transition-colors';
 
             const isPieceUnit = item.unit === 'piece';
             const qtyGmDisplay = isPieceUnit ? 'hidden' : 'flex items-center gap-0.5';
@@ -716,7 +733,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 let tempGm = parseFloat(item.quantity_gm);
                 const availableStock = currentStockLevels[item.id];
 
-                if (item.unit === 'piece' && type === 'gm') return;
+                if ((item.unit === 'piece' || item.unit === 'pcs') && type === 'gm') return;
 
                 const isPlus = this.classList.contains('qty-plus-btn');
 
@@ -759,7 +776,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 let newGm = parseFloat(item.quantity_gm);
 
                 if (this.classList.contains('qty-kg-field')) {
-                    newKg = parseFloat(this.value) || 0;
+                    newKg = Math.floor(parseFloat(this.value) || 0); // Ensure whole numbers for kg
                 } else {
                     newGm = parseFloat(this.value) || 0;
                     if (item.unit === 'piece') newGm = 0;
@@ -802,6 +819,7 @@ document.addEventListener('DOMContentLoaded', function() {
         clearCartBtn.addEventListener('click', function() {
             if (cart.length === 0) return;
             cart = [];
+            cartTableBody.innerHTML = ''; // Ensure table body is cleared
             renderCart();
             showToast('Order cleared.', 'info', null, 1600);
         });

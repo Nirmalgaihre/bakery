@@ -65,18 +65,18 @@
                 </div>
 
                 <div class="space-y-1">
-                    <label for="supplier_id"
-                        class="block text-xs font-bold text-slate-700 tracking-wide uppercase">Supplier <span
-                            class="text-slate-400 normal-case">(optional)</span></label>
-                    <select name="supplier_id" id="supplier_id"
-                        class="w-full text-sm p-2 px-3 border border-slate-200 bg-white rounded outline-none">
-                        <option value="">Select supplier...</option>
-                        @foreach($suppliers as $supplier)
-                        <option value="{{ $supplier->id }}" {{ old('supplier_id') == $supplier->id ? 'selected' : '' }}>
-                            {{ $supplier->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
+    <label for="supplier_id"
+        class="block text-xs font-bold text-slate-700 tracking-wide uppercase">Supplier <span
+            class="text-slate-400 normal-case">(optional)</span></label>
+    <select name="supplier_id" id="supplier_id"
+        class="w-full text-sm p-2 px-3 border border-slate-200 bg-white rounded outline-none">
+        <option value="">Select supplier...</option>
+        @foreach($suppliers as $supplier)
+        <option value="{{ $supplier->supplier_name }}" {{ old('supplier_id') == $supplier->supplier_name ? 'selected' : '' }}>
+            {{ $supplier->supplier_name }}</option>
+        @endforeach
+    </select>
+</div>
 
                 {{-- Bakery Tailored Inventory Unit --}}
                 <div class="space-y-1">
