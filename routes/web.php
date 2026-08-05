@@ -210,7 +210,8 @@ Route::middleware(['web', 'auth', 'verified'])
             Route::get('/invoices/print/{invoice}', [InvoiceController::class, 'printInvoicePDF'])
                 ->name('invoices.print');
             Route::get('/all', [SalesController::class, 'index'])->name('all');
-        });
+        
+            });
 
         // Customer Ledger Payments
         Route::post('/customer-ledger/{id}/payment', [CustomerLedgerController::class, 'storePayment'])
@@ -234,16 +235,17 @@ Route::middleware(['web', 'auth', 'verified'])
                 ->name('low_stock_manager');
         });
 
-Route::prefix('purchases')->name('purchases.')->group(function () {
+// -------------------------------------------------------------------
+        // PURCHASES MANAGEMENT & EXCEL IMPORT / EXPORT
+        // -------------------------------------------------------------------
+        Route::prefix('purchases')->name('purchases.')->group(function () {
             Route::get('/create', [PurchaseDashboardController::class, 'create'])->name('create');
             Route::post('/store', [InventoryMovementController::class, 'storeAddStock'])->name('store');
             
-            // Purchase Import & Export Routes
-            Route::get('/export/{type}', [PurchaseImportExportController::class, 'export'])->name('export');
-            Route::get('/import', [PurchaseImportExportController::class, 'importForm'])->name('import.form');
-
-            // 👇 CHANGE THIS LINE RIGHT HERE:
-            Route::post('/import', [AdminProductController::class, 'importPurchases'])->name('import');
+            // Purchase Export & Import Routes
+            Route::get('/export/{type?}', [PurchaseImportExportController::class, 'export'])->name('export');
+            Route::get('/import', [PurchaseImportExportController::class, 'importPage'])->name('importPage');
+            Route::post('/import-excel', [PurchaseImportExportController::class, 'importExcel'])->name('importExcel');
 
             Route::get('/edit/{purchase}', [PurchaseDashboardController::class, 'edit'])->name('edit');
             Route::post('/update/{purchase}', [PurchaseDashboardController::class, 'update'])->name('update');

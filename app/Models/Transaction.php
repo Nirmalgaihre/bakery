@@ -17,6 +17,7 @@ class Transaction extends Model
     'quantity', 
     'rate', 
     'transaction_date'
+    
 ];
 
     // Define the relationship back to the Customer

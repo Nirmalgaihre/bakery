@@ -10,22 +10,39 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class PurchaseImportExportController extends Controller
 {
-    public function export(string $type)
+    /**
+     * Export purchases to Excel or CSV.
+     */
+    public function export(string $type = 'xlsx')
     {
         $filename = 'purchases_' . now()->format('Y-m-d_His');
 
-        if ($type === 'csv') {
+        if (strtolower($type) === 'csv') {
             return Excel::download(new PurchasesExport, $filename . '.csv', \Maatwebsite\Excel\Excel::CSV);
         }
 
         return Excel::download(new PurchasesExport, $filename . '.xlsx');
     }
 
+    /**
+     * Display the purchase import page.
+     */
     public function importForm()
     {
         return view('admin.purchases.import');
     }
 
+    /**
+     * Alias for importForm to match routes targeting importPage.
+     */
+    public function importPage()
+    {
+        return $this->importForm();
+    }
+
+    /**
+     * Handle the purchases file upload and import logic.
+     */
     public function import(Request $request)
     {
         $request->validate([
@@ -47,7 +64,15 @@ class PurchaseImportExportController extends Controller
             return back()->with('import_warning', $import->failures()->count() . ' row(s) skipped due to validation errors.');
         }
 
-        return redirect()->route('admin.products.index')
+        return redirect()->back()
             ->with('success', 'Purchases imported successfully.');
+    }
+
+    /**
+     * Alias for import to match routes targeting importExcel.
+     */
+    public function importExcel(Request $request)
+    {
+        return $this->import($request);
     }
 }

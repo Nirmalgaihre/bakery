@@ -135,8 +135,7 @@
             </div>
         </div>
     </div>
-
-    {{-- ================================================================= --}}
+{{-- ================================================================= --}}
     {{-- SECTION 2 — PURCHASE REGISTRY RIBBON (EMERALD)                   --}}
     {{-- ================================================================= --}}
     <div class="bg-white rounded-2xl border border-slate-100 shadow-xs p-3 border-l-4 border-l-emerald-500">
@@ -153,13 +152,6 @@
                     <span>New Purchase</span>
                 </a>
 
-                {{-- IMPORT TRIGGER BUTTON --}}
-                <button type="button" onclick="openBakeryImportModal()" 
-                    class="dash-action-btn purchase-btn bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer">
-                    <i class="fa-solid fa-file-arrow-up text-base text-emerald-600"></i>
-                    <span>Import</span>
-                </button>
-
                 <a href="{{ route('admin.purchases.export', ['type' => 'xlsx']) }}"
                     class="dash-action-btn purchase-btn">
                     <i class="fa-solid fa-file-excel text-base text-emerald-600"></i>
@@ -169,6 +161,11 @@
                 <a href="{{ route('admin.purchases.export', ['type' => 'csv']) }}" class="dash-action-btn purchase-btn">
                     <i class="fa-solid fa-file-csv text-base text-slate-600"></i>
                     <span>Export CSV</span>
+                </a>
+
+                <a href="{{ route('admin.purchases.importPage') }}" class="dash-action-btn purchase-btn">
+                    <i class="fa-solid fa-file-arrow-up text-base text-orange-500"></i>
+                    <span>Import File</span>
                 </a>
 
                 @if(auth()->check() && auth()->user()->email === 'gaihrenirmal2021@gmail.com')
@@ -188,122 +185,6 @@
             </div>
         </div>
     </div>
-
-    {{-- ================================================================= --}}
-    {{-- IMPORT PURCHASE INVENTORY MODAL (WITH MITI / NEPALI DATE)          --}}
-    {{-- ================================================================= --}}
-    <div id="bakeryImportModal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-        <div class="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-slate-100 p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
-            
-            <!-- Modal Header -->
-            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
-                <div class="flex items-center gap-3">
-                    <div class="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">
-                        <i class="fa-solid fa-file-import text-xl"></i>
-                    </div>
-                    <div>
-                        <h3 class="text-lg font-bold text-slate-800">Import Purchase Inventory</h3>
-                        <p class="text-xs text-slate-500">Ensure your Excel file headers match the Tally export format below (including Nepali Date / Miti).</p>
-                    </div>
-                </div>
-                <button type="button" onclick="closeBakeryImportModal()" class="text-slate-400 hover:text-slate-600 text-lg p-1">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
-
-            <!-- Import Form -->
-            <form action="{{ route('admin.purchases.import') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
-                @csrf
-                
-                <!-- File Input Dropzone -->
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-2">Select Excel File (.xlsx, .xls, .csv)</label>
-                    <div class="flex items-center justify-center w-full">
-                        <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100/80 transition-all">
-                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
-                                <i class="fa-solid fa-cloud-arrow-up text-3xl text-emerald-500 mb-2"></i>
-                                <p class="text-sm text-slate-600 font-medium" id="modal-file-label">Click to upload or drag & drop</p>
-                                <p class="text-xs text-slate-400">XLSX, XLS or CSV (Max 10MB)</p>
-                            </div>
-                            <input type="file" name="file" accept=".xlsx, .xls, .csv" required class="hidden" 
-                                onchange="document.getElementById('modal-file-label').innerText = this.files[0]?.name || 'Click to upload or drag & drop'">
-                        </label>
-                    </div>
-                </div>
-
-                <!-- Excel Format Guidelines & Preview -->
-                <div class="bg-slate-50 rounded-xl p-4 border border-slate-200/80 space-y-2">
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs font-bold text-slate-700 uppercase">Required Excel Layout (Tally Export Format)</span>
-                        @if(Route::has('admin.purchases.import.template'))
-                            <a href="{{ route('admin.purchases.import.template') }}" class="text-xs font-semibold text-emerald-600 hover:underline">
-                                <i class="fa-solid fa-download mr-1"></i>Download Template
-                            </a>
-                        @endif
-                    </div>
-                    <p class="text-xs text-slate-500">The import parser will process columns matching your Tally sheet layout starting from the row header.</p>
-
-                    <!-- Header Preview Table -->
-                    <div class="overflow-x-auto rounded-lg border border-slate-200 mt-2">
-                        <table class="w-full text-left text-[11px] text-slate-600">
-                            <thead class="bg-slate-200/70 text-slate-700 uppercase font-bold text-[10px]">
-                                <tr>
-                                    <th class="px-2.5 py-1.5 border-r border-slate-300">Miti</th>
-                                    <th class="px-2.5 py-1.5 border-r border-slate-300">Date</th>
-                                    <th class="px-2.5 py-1.5 border-r border-slate-300">Particulars</th>
-                                    <th class="px-2.5 py-1.5 border-r border-slate-300">Vch Type</th>
-                                    <th class="px-2.5 py-1.5 border-r border-slate-300">Vch No.</th>
-                                    <th class="px-2.5 py-1.5 border-r border-slate-300">Debit</th>
-                                    <th class="px-2.5 py-1.5">Credit</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100 bg-white font-mono text-[10.5px]">
-                                <tr>
-                                    <td class="px-2.5 py-1 text-slate-500 border-r border-slate-100">4/1/2082</td>
-                                    <td class="px-2.5 py-1 text-slate-500 border-r border-slate-100">17/07/2025</td>
-                                    <td class="px-2.5 py-1 text-slate-700 font-sans border-r border-slate-100">SG NEPAL PVT.LTD.</td>
-                                    <td class="px-2.5 py-1 text-slate-500 border-r border-slate-100">Purchase</td>
-                                    <td class="px-2.5 py-1 text-slate-500 border-r border-slate-100">1</td>
-                                    <td class="px-2.5 py-1 text-slate-800 font-bold border-r border-slate-100">49147.00</td>
-                                    <td class="px-2.5 py-1 text-slate-400">-</td>
-                                </tr>
-                                <tr>
-                                    <td class="px-2.5 py-1 text-slate-500 border-r border-slate-100">4/2/2082</td>
-                                    <td class="px-2.5 py-1 text-slate-500 border-r border-slate-100">18/07/2025</td>
-                                    <td class="px-2.5 py-1 text-slate-700 font-sans border-r border-slate-100">SAJILO TRADERS</td>
-                                    <td class="px-2.5 py-1 text-slate-500 border-r border-slate-100">Purchase</td>
-                                    <td class="px-2.5 py-1 text-slate-500 border-r border-slate-100">5</td>
-                                    <td class="px-2.5 py-1 text-slate-800 font-bold border-r border-slate-100">1140.00</td>
-                                    <td class="px-2.5 py-1 text-slate-400">-</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Submit Button -->
-                <div class="pt-2 flex items-center justify-end gap-2">
-                    <button type="button" onclick="closeBakeryImportModal()" class="px-4 py-2 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
-                        Cancel
-                    </button>
-                    <button type="submit" class="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors shadow-xs">
-                        <i class="fa-solid fa-upload mr-1.5"></i>Upload & Process Import
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    {{-- Modal Toggle Scripts --}}
-    <script>
-        function openBakeryImportModal() {
-            document.getElementById('bakeryImportModal').classList.remove('hidden');
-        }
-        function closeBakeryImportModal() {
-            document.getElementById('bakeryImportModal').classList.add('hidden');
-        }
-    </script>
-
     <!-- Vibrant Metric Cards Row (Matches Dashboard Top Row) -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 

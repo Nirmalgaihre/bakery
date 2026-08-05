@@ -1,58 +1,150 @@
 <?php
+
 namespace App\Imports;
 
 use App\Models\Purchase;
+use App\Models\Supplier;
+use Carbon\Carbon;
+use Anuzpandey\LaravelNepaliDate\LaravelNepaliDate;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
-use Carbon\Carbon;
+use Maatwebsite\Excel\Concerns\WithValidation;
+use Maatwebsite\Excel\Concerns\SkipsOnFailure;
+use Maatwebsite\Excel\Concerns\SkipsFailures;
 
-class PurchasesImport implements ToModel, WithHeadingRow
+class PurchasesImport implements ToModel, WithHeadingRow, WithValidation, SkipsOnFailure
 {
+    use SkipsFailures;
+
     public function model(array $row)
     {
-        if (empty($row['particulars']) && empty($row['item_name'])) {
+        // 1. Filter: Only import rows where Voucher Type is Purchase
+        $vchType = trim($row['vch_type'] ?? '');
+        if (!empty($vchType) && stripos($vchType, 'purchase') === false) {
             return null;
         }
 
-        $itemName = trim($row['particulars'] ?? $row['item_name']);
-        $totalAmount = !empty($row['debit']) ? (float) str_replace(',', '', $row['debit']) : 0.0;
-        $qty = !empty($row['quantity']) ? (float) str_replace(',', '', $row['quantity']) : 1.0;
+        // 2. Particulars is Supplier Name
+        $supplierName = trim($row['particulars'] ?? $row['supplier_name'] ?? '');
+        $supplierName = preg_replace('/\s+/', ' ', $supplierName);
 
-        // Standardize AD Date
-        $purchaseDate = null;
-        if (!empty($row['date'])) {
-            try {
-                $purchaseDate = Carbon::createFromFormat('d/m/Y', trim($row['date']))->format('Y-m-d');
-            } catch (\Exception $e) {
-                $purchaseDate = date('Y-m-d');
-            }
+        if (empty($supplierName)) {
+            return null;
         }
 
-        // Process Nepali Date (Miti field)
-        $nepaliDate = null;
-        if (!empty($row['miti'])) {
-            $rawMiti = trim($row['miti']);
-            $parts = explode('/', $rawMiti);
-            if (count($parts) === 3) {
-                $month = str_pad($parts[0], 2, '0', STR_PAD_LEFT);
-                $day   = str_pad($parts[1], 2, '0', STR_PAD_LEFT);
-                $year  = $parts[2];
-                $nepaliDate = "{$year}-{$month}-{$day}";
-            } else {
-                $nepaliDate = $rawMiti;
-            }
+        // 3. Debit (Purchase Cost) Amount
+        $debitAmount = floatval($row['debit'] ?? $row['amount'] ?? 0);
+        if ($debitAmount <= 0) {
+            return null;
         }
 
+        // 4. Find or Create Supplier
+        $supplier = Supplier::firstOrCreate(
+            ['name' => $supplierName]
+        );
+
+        // 5. Item Name (Sets NULL if empty)
+        $itemName = !empty($row['item_name']) ? trim($row['item_name']) : null;
+
+        // 6. Format Dates
+        $purchaseDate = $this->transformDate($row['date'] ?? null);
+        $nepaliDate   = $this->formatNepaliDateString($row['miti'] ?? $row['nepali_date'] ?? null, $purchaseDate);
+
+        // 7. Save Purchase Record
         return new Purchase([
-            'supplier_name'  => $itemName,
-            'item_name'      => $itemName,
-            'quantity'       => $qty,
-            'unit'           => trim($row['unit'] ?? 'pcs'),
-            'price_per_unit' => $qty > 0 ? ($totalAmount / $qty) : $totalAmount,
-            'total_amount'   => $totalAmount,
+            'supplier_id'    => $supplier->id,
+            'supplier_name'  => $supplier->name,
+            'item_name'      => $itemName,                         // Now stores NULL
+            'quantity'       => floatval($row['quantity'] ?? 1.00),
+            'unit'           => trim($row['unit'] ?? 'lot'),
+            'price_per_unit' => $debitAmount,
+            'total_amount'   => $debitAmount,
             'purchase_date'  => $purchaseDate,
-            'nepali_date'    => $nepaliDate,
-            'notes'          => isset($row['vch_no']) ? 'Vch No: ' . $row['vch_no'] : null,
+            'nepali_date'    => $nepaliDate,                       // Converted to YYYY-MM-DD
+            'notes'          => 'Imported from Tally. Vch No: ' . ($row['vch_no'] ?? 'N/A'),
         ]);
+    }
+
+    public function rules(): array
+    {
+        return [
+            'particulars' => 'required',
+            'debit'       => 'nullable|numeric',
+        ];
+    }
+
+    /**
+     * Converts Nepali date strings like 4/1/2082 or Excel serial numbers into YYYY-MM-DD (e.g. 2082-04-01).
+     */
+    private function formatNepaliDateString($value, $fallbackGregorianDate = null)
+    {
+        if (empty($value)) {
+            return $fallbackGregorianDate 
+                ? LaravelNepaliDate::from($fallbackGregorianDate)->toNepaliDate(format: 'Y-m-d')
+                : null;
+        }
+
+        $cleanValue = trim((string) $value);
+
+        // Check if string is already YYYY-MM-DD
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $cleanValue)) {
+            return $cleanValue;
+        }
+
+        // Parse M/D/YYYY or MM/DD/YYYY format (e.g., 4/1/2082 -> 2082-04-01)
+        if (preg_match('/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/', $cleanValue, $matches)) {
+            $month = str_pad($matches[1], 2, '0', STR_PAD_LEFT);
+            $day   = str_pad($matches[2], 2, '0', STR_PAD_LEFT);
+            $year  = $matches[3];
+
+            return "{$year}-{$month}-{$day}";
+        }
+
+        // Parse YYYY/M/D or YYYY/MM/DD format (e.g., 2082/4/1 -> 2082-04-01)
+        if (preg_match('/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/', $cleanValue, $matches)) {
+            $year  = $matches[1];
+            $month = str_pad($matches[2], 2, '0', STR_PAD_LEFT);
+            $day   = str_pad($matches[3], 2, '0', STR_PAD_LEFT);
+
+            return "{$year}-{$month}-{$day}";
+        }
+
+        // If Excel stored it as a numeric timestamp (e.g. 66567)
+        if (is_numeric($cleanValue)) {
+            try {
+                $dt = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float)$cleanValue);
+                return LaravelNepaliDate::from($dt->format('Y-m-d'))->toNepaliDate(format: 'Y-m-d');
+            } catch (\Exception $e) {
+                if ($fallbackGregorianDate) {
+                    return LaravelNepaliDate::from($fallbackGregorianDate)->toNepaliDate(format: 'Y-m-d');
+                }
+            }
+        }
+
+        return $cleanValue;
+    }
+
+    /**
+     * Helper to transform Excel Gregorian date into standard Y-m-d format.
+     */
+    private function transformDate($value)
+    {
+        if (empty($value)) {
+            return now()->format('Y-m-d');
+        }
+
+        try {
+            if (is_numeric($value)) {
+                return \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($value)->format('Y-m-d');
+            }
+
+            if (preg_match('/^\d{1,2}\/\d{1,2}\/\d{4}$/', trim($value))) {
+                return Carbon::createFromFormat('d/m/Y', trim($value))->format('Y-m-d');
+            }
+
+            return Carbon::parse($value)->format('Y-m-d');
+        } catch (\Exception $e) {
+            return now()->format('Y-m-d');
+        }
     }
 }

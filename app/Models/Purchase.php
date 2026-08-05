@@ -8,15 +8,15 @@ class Purchase extends Model
 {
     protected $fillable = [
         'supplier_id',
-        'item_name', 
-        'quantity', 
+        'supplier_name',
+        'item_name',
+        'quantity',
         'unit',
-        'price_per_unit', 
-        'total_amount', 
-        'supplier_name', 
-        'purchase_date', 
+        'price_per_unit',
+        'total_amount',
+        'purchase_date',
         'nepali_date',
-        'notes'
+        'notes',
     ];
 
     /**
